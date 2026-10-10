@@ -110,6 +110,13 @@ export const ChevronIcon = (p: P) => (
   </svg>
 );
 
+export const ChatIcon = (p: P) => (
+  <svg {...base(p)}>
+    <path d="M7.84 14v.74l-1.5.5a.5.5 0 0 1-.64-.57l.2-1.2a5 5 0 0 1 7-3.92 3.5 3.5 0 0 1 2.7 3.3 3.5 3.5 0 0 1-3.4 3.4z" />
+    <path d="M12 2a9 9 0 0 0-9 9v6.5a1.5 1.5 0 0 0 1.5 1.5h.25a1 1 0 0 1 .83.45l1.2 2a1 1 0 0 0 1.38 0l1.2-2a1 1 0 0 1 .83-.45h.25A9 9 0 0 0 12 2z" />
+  </svg>
+);
+
 /* Social (filled) */
 const fill = (p: P) => ({
   width: 20,

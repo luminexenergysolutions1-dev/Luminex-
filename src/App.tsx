@@ -3,7 +3,7 @@ import { HashRouter, Outlet, Route, Routes, useLocation } from "react-router-dom
 import { SiteProvider } from "@/context/SiteContext";
 import { Navbar } from "@/components/Navbar";
 import { Footer } from "@/components/Footer";
-import { WhatsAppButton } from "@/components/WhatsAppButton";
+import { ChatbotButton } from "@/components/ChatbotButton";
 import { ScrollProgress } from "@/components/ScrollProgress";
 import Home from "@/pages/Home";
 
@@ -44,7 +44,7 @@ function PublicLayout() {
         </Suspense>
       </main>
       <Footer />
-      <WhatsAppButton />
+      <ChatbotButton />
     </>
   );
 }
