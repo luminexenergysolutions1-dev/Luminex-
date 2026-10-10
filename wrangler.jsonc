@@ -3,7 +3,6 @@
   "name": "luminex-energy-solutions",
   "compatibility_date": "2026-10-10",
   "assets": {
-    "directory": "./dist/client",
-    "binding": "ASSETS"
+    "directory": "./dist/client"
   }
 }
