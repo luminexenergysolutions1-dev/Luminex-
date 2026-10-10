@@ -37,7 +37,7 @@ function findAnswer(query: string): { text: string; links?: { label: string; pat
   };
 }
 
-export function ChatbotButton() {
+function ChatbotButtonInner() {
   const { whatsappLink } = useSite();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
@@ -118,7 +118,7 @@ export function ChatbotButton() {
     } catch {}
     setOpen(false);
     setMinimized(false);
-     const services = getServicesInfo();
+    const services = getServicesInfo();
     const fullMessage = `${message}\n\nFrom Luminex website chatbot. Services: ${services.map((s) => s.title).join(", ")}.`;
     window.open(whatsappLink(fullMessage), "_blank", "noopener,noreferrer");
   };
@@ -256,4 +256,18 @@ export function ChatbotButton() {
       )}
     </div>
   );
+}
+
+export function ChatbotButton() {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  if (!mounted) {
+    return <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40" />;
+  }
+
+  return <ChatbotButtonInner />;
 }
