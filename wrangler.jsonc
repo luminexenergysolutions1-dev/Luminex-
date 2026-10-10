@@ -1,0 +1,10 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "luminex-energy-solutions",
+  "main": "./src/worker-entry.ts",
+  "compatibility_date": "2026-10-10",
+  "assets": {
+    "directory": "./dist",
+    "binding": "ASSETS"
+  }
+}

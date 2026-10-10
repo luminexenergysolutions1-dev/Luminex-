@@ -1,4 +1,4 @@
-name: Deploy to Cloudflare Pages
+name: Deploy to Cloudflare Workers
 
 on:
   push:
@@ -31,20 +31,8 @@ jobs:
           VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
           VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
 
-      - name: Deploy to Cloudflare Pages
-        run: |
-          npm install -g wrangler@latest
-          
-          # Check if project exists, create if not
-          if npx wrangler pages project list 2>/dev/null | grep -q "luminex-energy-solutions"; then
-            echo "Project exists, deploying..."
-            npx wrangler pages deploy dist --project-name=luminex-energy-solutions --commit-dirty=true
-          else
-            echo "Creating project..."
-            npx wrangler pages project create luminex-energy-solutions --production-branch=main
-            echo "Deploying to new project..."
-            npx wrangler pages deploy dist --project-name=luminex-energy-solutions --commit-dirty=true
-          fi
+      - name: Deploy to Cloudflare Workers
+        run: npx wrangler deploy --minify
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
