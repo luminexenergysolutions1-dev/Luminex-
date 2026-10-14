@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { Project } from "@/lib/types";
 import { CloseIcon, MapIcon } from "./Icons";
 import { Button } from "./ui";
+import { MediaFrame } from "./MediaFrame";
 
 export function ProjectGrid({ projects }: { projects: Project[] }) {
   const [active, setActive] = useState<Project | null>(null);
@@ -15,7 +16,7 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
         <p className="mt-3 text-charcoal/60 max-w-md mx-auto leading-relaxed">
           Luminex launched in September 2026. As installations are completed across Ghana, we will share them here — real work, real locations.
         </p>
-        <Button to="/quote" variant="dark" className="mt-7">Be one of our first projects</Button>
+        <Button to="/quote" variant="dark" className="mt-7">Be our cherished customer</Button>
       </div>
     );
   }
@@ -30,7 +31,7 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
               className="group block w-full text-left overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-charcoal/5 transition hover:-translate-y-1 hover:shadow-premium"
             >
               <div className="aspect-[4/3] overflow-hidden">
-                <img src={p.image} alt={p.title} loading="lazy" className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                <MediaFrame url={p.image} alt={p.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
               </div>
               <div className="p-5">
                 <span className="inline-block rounded-full bg-ice px-2.5 py-1 text-[11px] font-semibold text-energy">{p.category}</span>
@@ -46,7 +47,7 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-charcoal/70 backdrop-blur-sm p-0 sm:p-6" onClick={() => setActive(null)} role="dialog" aria-modal="true" aria-label={active.title}>
           <div className="w-full max-w-3xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-3xl bg-white" onClick={(e) => e.stopPropagation()}>
             <div className="relative aspect-[16/10]">
-              <img src={active.image} alt={active.title} className="h-full w-full object-cover" />
+              <MediaFrame url={active.image} alt={active.title} className="h-full w-full object-cover" showPlayBadge />
               <button onClick={() => setActive(null)} className="absolute right-4 top-4 grid h-11 w-11 place-items-center rounded-full bg-white/90 text-charcoal" aria-label="Close">
                 <CloseIcon />
               </button>

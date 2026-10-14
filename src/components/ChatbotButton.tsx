@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { ChatIcon, CloseIcon } from "@/components/Icons";
-import { chatbotFAQs, getServicesInfo, WELCOME_MESSAGE } from "@/lib/chatbotKnowledge";
+import {
+  findKnowledgeAnswer,
+  getServicesInfo,
+  WELCOME_LINKS,
+  WELCOME_MESSAGE,
+} from "@/lib/chatbotKnowledge";
 import { useSite } from "@/context/SiteContext";
 
 type Message = {
@@ -13,32 +18,17 @@ type Message = {
 
 const KEY = "luminex_chat_open";
 
-function findAnswer(query: string): { text: string; links?: { label: string; path: string }[] } {
-  const lower = query.toLowerCase().trim();
-  if (!lower) return { text: WELCOME_MESSAGE };
-
-  let best: { score: number; item: (typeof chatbotFAQs)[0] } | null = null;
-  for (const item of chatbotFAQs) {
-    const allKeywords = [...item.keywords, ...item.question.toLowerCase().split(/\s+/)];
-    let score = 0;
-    for (const kw of allKeywords) {
-      if (lower.includes(kw)) score += 1;
-    }
-    if (score > 0 && (!best || score > best.score)) best = { score, item };
-  }
-
-  if (best) {
-    return { text: best.item.answer, links: best.item.links };
-  }
-
-  return {
-    text: "I'm not certain about that. Let me connect you with our team for a precise answer.",
-    links: [{ label: "Contact page", path: "/contact" }, { label: "Request a Quote", path: "/quote" }],
-  };
-}
+/* Shortcut questions shown as one-tap chips under the input. */
+const QUICK_QUESTIONS = [
+  "What services do you offer?",
+  "How do I get a quotation?",
+  "Which areas do you serve?",
+  "What is an energy audit?",
+  "How can I contact you?",
+];
 
 function ChatbotButtonInner() {
-  const { whatsappLink } = useSite();
+  const { data, whatsappLink } = useSite();
   const [open, setOpen] = useState(false);
   const [minimized, setMinimized] = useState(false);
   const [messages, setMessages] = useState<Message[]>([]);
@@ -46,14 +36,19 @@ function ChatbotButtonInner() {
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
+  /* The chat window must stay closed until the visitor opens the launcher —
+     it must never pop open on its own. */
   useEffect(() => {
     try {
       if (sessionStorage.getItem(KEY) === "1") {
         return;
       }
     } catch {}
-    const show = setTimeout(() => setOpen(true), 10000);
-    return () => clearTimeout(show);
+    return () => {
+      try {
+        sessionStorage.removeItem(KEY);
+      } catch {}
+    };
   }, []);
 
   useEffect(() => {
@@ -63,6 +58,7 @@ function ChatbotButtonInner() {
           id: 1,
           isBot: true,
           text: WELCOME_MESSAGE,
+          links: WELCOME_LINKS,
           timestamp: new Date(),
         },
       ]);
@@ -76,9 +72,9 @@ function ChatbotButtonInner() {
     });
   }, [messages, isTyping]);
 
-  const sendMessage = () => {
-    if (!input.trim() || isTyping) return;
-    const userText = input.trim();
+  const sendMessage = (text?: string) => {
+    const userText = (text ?? input).trim();
+    if (!userText || isTyping) return;
     const userMsg: Message = {
       id: Date.now(),
       isBot: false,
@@ -90,7 +86,7 @@ function ChatbotButtonInner() {
     setIsTyping(true);
 
     setTimeout(() => {
-      const reply = findAnswer(userText);
+      const reply = findKnowledgeAnswer(userText, data);
       setMessages((prev) => [
         ...prev,
         {
@@ -142,8 +138,9 @@ function ChatbotButtonInner() {
   }
 
   return (
-    <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40">
-      <div className="relative flex flex-col w-[340px] max-w-[calc(100vw-2rem)] h-[520px] bg-white rounded-2xl shadow-premium ring-1 ring-charcoal/5 overflow-hidden">
+    <div className="fixed bottom-[max(1.25rem,env(safe-area-inset-bottom))] right-[max(1.25rem,env(safe-area-inset-right))] z-40" role="dialog" aria-label="Luminex assistant">
+      {!minimized && (
+      <div className="relative flex flex-col w-[340px] max-w-[calc(100vw-2rem)] h-[520px] max-h-[calc(100dvh-7rem)] bg-white rounded-2xl shadow-premium ring-1 ring-charcoal/5 overflow-hidden">
         {/* Header */}
         <div className="flex items-center justify-between bg-charcoal text-white p-4 rounded-t-2xl">
           <div className="flex items-center gap-2">
@@ -211,18 +208,40 @@ function ChatbotButtonInner() {
         </div>
 
         {/* Input area */}
-        <div className="p-3 border-t border-charcoal/5 flex gap-2">
+        <div className="border-t border-charcoal/5 px-3 pt-2.5">
+          <div className="flex flex-wrap gap-1.5 pb-2">
+            {QUICK_QUESTIONS.map((q) => (
+              <button
+                key={q}
+                type="button"
+                onClick={() => sendMessage(q)}
+                disabled={isTyping}
+                className="min-h-[32px] rounded-full border border-charcoal/10 bg-soft px-3 text-[11px] font-semibold text-charcoal/70 transition-colors hover:border-energy hover:text-energy disabled:opacity-40"
+              >
+                {q}
+              </button>
+            ))}
+          </div>
+        </div>
+        <form
+          className="flex gap-2 border-t border-charcoal/5 p-3"
+          onSubmit={(e) => {
+            e.preventDefault();
+            sendMessage();
+          }}
+        >
           <textarea
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type a message..."
+            placeholder="Ask about solar, AC, electrical work, quotes…"
             rows={1}
             maxLength={500}
+            aria-label="Message"
             className="flex-1 resize-none rounded-xl border border-charcoal/10 bg-charcoal/5 text-sm text-charcoal placeholder:text-charcoal/40 focus:outline-none focus:ring-2 focus:ring-energy/30 px-3 py-2"
           />
           <button
-            onClick={sendMessage}
+            type="submit"
             disabled={!input.trim() || isTyping}
             aria-label="Send message"
             className="grid h-9 w-9 place-items-center rounded-xl bg-energy text-white disabled:opacity-40 disabled:cursor-not-allowed hover:bg-energy-dark transition-colors"
@@ -231,7 +250,7 @@ function ChatbotButtonInner() {
               <path d="M2 21l21-9-21-9v7l15 2-15 2z" />
             </svg>
           </button>
-        </div>
+        </form>
 
         {/* WhatsApp quick redirect */}
         <div className="px-3 pb-3 border-t border-charcoal/5 text-center">
@@ -243,16 +262,7 @@ function ChatbotButtonInner() {
             <span className="text-xs">Continue on WhatsApp</span>
           </button>
         </div>
-      </div>
-
-      {/* Minimized state */}
-      {minimized && (
-        <button
-          onClick={() => setMinimized(false)}
-          className="absolute bottom-16 right-0 bg-charcoal text-white rounded-full h-14 w-14 shadow-lg grid place-items-center"
-        >
-          <ChatIcon width={24} height={24} />
-        </button>
+        </div>
       )}
     </div>
   );

@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import { useSite } from "@/context/SiteContext";
 import { Button, Container, Reveal, SectionHeading } from "@/components/ui";
 import { ServiceCard } from "@/components/ServiceCard";
+import { MediaFrame } from "@/components/MediaFrame";
 import { EnergyFlow } from "@/components/EnergyFlow";
 import { QuoteForm } from "@/components/QuoteForm";
 import { ProjectGrid } from "@/components/ProjectGrid";
@@ -33,10 +34,9 @@ export default function Home() {
     <>
       {/* ---------------- HERO ---------------- */}
       <section className="relative min-h-[100svh] flex items-end lg:items-center overflow-hidden bg-charcoal">
-        <img
-          src={h.hero_image}
+        <MediaFrame
+          url={h.hero_image}
           alt=""
-          fetchPriority="high"
           className="absolute inset-0 h-full w-full object-cover object-[65%_center] lg:object-center"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal via-charcoal/70 to-charcoal/20 lg:bg-gradient-to-r lg:from-charcoal lg:via-charcoal/75 lg:to-charcoal/10" />
@@ -112,7 +112,7 @@ export default function Home() {
           <div className="grid gap-12 lg:grid-cols-2 lg:gap-16 items-center">
             <Reveal className="relative mb-6 lg:mb-0">
               <div className="relative overflow-hidden rounded-3xl aspect-[4/5] sm:aspect-[5/4] lg:aspect-[4/5]">
-                <img src={h.about_image} alt="Luminex engineers on site in Ghana" loading="lazy" className="h-full w-full object-cover" />
+                <MediaFrame url={h.about_image} alt="Luminex engineers on site in Ghana" className="h-full w-full object-cover" />
               </div>
               <div className="absolute -bottom-5 right-3 sm:right-6 rounded-2xl bg-charcoal text-white px-4 py-3 sm:px-5 sm:py-4 shadow-premium max-w-[220px] sm:max-w-[240px]">
                 <p className="text-xs text-white/55">Registered in Ghana</p>

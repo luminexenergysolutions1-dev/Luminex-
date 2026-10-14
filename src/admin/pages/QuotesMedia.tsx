@@ -3,7 +3,7 @@ import { deleteMedia, fetchQuotes, listMedia, updateQuoteStatus, uploadMedia } f
 import { QUOTE_STATUSES } from "@/lib/defaults";
 import type { MediaItem, QuoteRequest, QuoteStatus } from "@/lib/types";
 import { AdminPageTitle } from "../AdminLayout";
-import { inputCls } from "../fields";
+import { inputCls, isVideoUrl } from "../fields";
 import { cn } from "@/utils/cn";
 
 const statusColor: Record<QuoteStatus, string> = {
@@ -155,7 +155,7 @@ export function MediaAdmin() {
   };
 
   const remove = async (name: string) => {
-    if (!confirm("Delete this image? Pages using it will show a broken image until replaced.")) return;
+    if (!confirm("Delete this file? Pages using it will show a broken image or video until replaced.")) return;
     await deleteMedia(name);
     load();
   };
@@ -170,31 +170,46 @@ export function MediaAdmin() {
     <>
       <AdminPageTitle
         title="Media Library"
-        intro="Upload images once, then assign them to the hero, services or projects. Use WebP or compressed JPG under 5MB for best performance."
+        intro="Upload images and videos once, then assign them to the hero, services or projects. Use WebP or compressed JPG under 5MB for images and MP4, MOV or WebM under 100MB for videos."
         actions={
           <label className="min-h-[44px] inline-flex items-center rounded-lg bg-charcoal px-4 text-sm font-semibold text-white cursor-pointer">
-            {busy ? "Uploading…" : "Upload images"}
-            <input type="file" accept="image/*" multiple className="sr-only" onChange={(e) => upload(e.target.files)} />
+            {busy ? "Uploading…" : "Upload images or videos"}
+            <input type="file" accept="image/*,video/*" multiple className="sr-only" onChange={(e) => upload(e.target.files)} />
           </label>
         }
       />
       {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
       {items.length === 0 ? (
-        <div className="rounded-2xl bg-white ring-1 ring-charcoal/6 p-10 text-center text-sm text-charcoal/50">No images uploaded yet.</div>
+        <div className="rounded-2xl bg-white ring-1 ring-charcoal/6 p-10 text-center text-sm text-charcoal/50">No images or videos uploaded yet.</div>
       ) : (
         <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
-          {items.map((m) => (
-            <li key={m.name} className="rounded-xl bg-white ring-1 ring-charcoal/6 overflow-hidden">
-              <div className="aspect-[4/3] bg-soft"><img src={m.url} alt={m.name} loading="lazy" className="h-full w-full object-cover" /></div>
-              <div className="p-2.5">
-                <p className="text-[11px] text-charcoal/60 truncate" title={m.name}>{m.name}</p>
-                <div className="mt-1.5 flex gap-1">
-                  <button onClick={() => copy(m.url)} className="flex-1 min-h-[36px] rounded-md bg-soft text-xs font-semibold">{copied === m.url ? "Copied" : "Copy URL"}</button>
-                  <button onClick={() => remove(m.name)} className="min-h-[36px] px-2.5 rounded-md text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+          {items.map((m) => {
+            const v = isVideoUrl(m.url);
+            return (
+              <li key={m.name} className="rounded-xl bg-white ring-1 ring-charcoal/6 overflow-hidden">
+                <div className="aspect-[4/3] bg-soft relative">
+                  {v ? (
+                    <>
+                      <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                      <span className="absolute inset-0 grid place-items-center text-white bg-charcoal/25 pointer-events-none">
+                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                      </span>
+                    </>
+                  ) : (
+                    <img src={m.url} alt={m.name} loading="lazy" className="h-full w-full object-cover" />
+                  )}
                 </div>
-              </div>
-            </li>
-          ))}
+                <div className="p-2.5">
+                  <p className="text-[11px] text-charcoal/60 truncate" title={m.name}>{m.name}</p>
+                  {v && <p className="text-[10px] font-semibold text-energy uppercase tracking-wide">Video</p>}
+                  <div className="mt-1.5 flex gap-1">
+                    <button onClick={() => copy(m.url)} className="flex-1 min-h-[36px] rounded-md bg-soft text-xs font-semibold">{copied === m.url ? "Copied" : "Copy URL"}</button>
+                    <button onClick={() => remove(m.name)} className="min-h-[36px] px-2.5 rounded-md text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
+                  </div>
+                </div>
+              </li>
+            );
+          })}
         </ul>
       )}
     </>

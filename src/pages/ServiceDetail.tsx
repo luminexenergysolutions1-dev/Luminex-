@@ -3,6 +3,7 @@ import { useSite } from "@/context/SiteContext";
 import { Button, Container, Reveal, SectionHeading } from "@/components/ui";
 import { QuoteForm } from "@/components/QuoteForm";
 import { ArrowIcon, CheckIcon, serviceIcon } from "@/components/Icons";
+import { MediaFrame } from "@/components/MediaFrame";
 
 export default function ServiceDetail() {
   const { slug } = useParams();
@@ -30,7 +31,7 @@ export default function ServiceDetail() {
   return (
     <>
       <section className="relative bg-charcoal text-white overflow-hidden">
-        <img src={service.image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
+        <MediaFrame url={service.image} alt="" className="absolute inset-0 h-full w-full object-cover opacity-50" />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal via-charcoal/80 to-charcoal/30 lg:bg-gradient-to-r lg:from-charcoal lg:via-charcoal/80 lg:to-charcoal/20" />
         <Container className="relative pt-32 pb-16 lg:pt-44 lg:pb-28">
           <Link to="/services" className="inline-flex items-center gap-1.5 text-sm text-white/60 hover:text-white min-h-[44px]">← All services</Link>

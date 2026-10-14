@@ -2,6 +2,7 @@ import { useSite } from "@/context/SiteContext";
 import { PageHeader } from "@/components/PageHeader";
 import { Button, Container, Reveal, SectionHeading } from "@/components/ui";
 import { EnergyFlow } from "@/components/EnergyFlow";
+import { MediaFrame } from "@/components/MediaFrame";
 import { ArrowIcon, CheckIcon } from "@/components/Icons";
 
 export default function About() {
@@ -23,7 +24,7 @@ export default function About() {
               </div>
             </Reveal>
             <Reveal delay={100} className="overflow-hidden rounded-3xl aspect-[4/3] lg:aspect-[4/5]">
-              <img src={a.image} alt="Luminex team" loading="lazy" className="h-full w-full object-cover" />
+              <MediaFrame url={a.image} alt="Luminex team" className="h-full w-full object-cover" />
             </Reveal>
           </div>
         </Container>

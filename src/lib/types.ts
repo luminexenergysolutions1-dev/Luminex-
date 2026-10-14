@@ -121,6 +121,7 @@ export interface MediaItem {
   name: string;
   url: string;
   created_at?: string;
+  mime_type?: string;
 }
 
 export type QuoteStatus =

@@ -13,6 +13,7 @@ const ServiceDetail = lazy(() => import("@/pages/ServiceDetail"));
 const Projects = lazy(() => import("@/pages/Projects"));
 const Contact = lazy(() => import("@/pages/Contact"));
 const Quote = lazy(() => import("@/pages/Quote"));
+const Assessment = lazy(() => import("@/pages/Assessment"));
 const AdminRoutes = lazy(() => import("@/admin/AdminRoutes"));
 
 function ScrollToTop() {
@@ -63,6 +64,7 @@ export default function App() {
             <Route path="/projects" element={<Projects />} />
             <Route path="/contact" element={<Contact />} />
             <Route path="/quote" element={<Quote />} />
+            <Route path="/assessment" element={<Assessment />} />
             <Route path="*" element={<Home />} />
           </Route>
           <Route

@@ -156,17 +156,24 @@ export async function listMedia(): Promise<MediaItem[]> {
   if (error) throw error;
   return (data ?? [])
     .filter((f) => f.name && !f.name.startsWith("."))
-    .map((f) => ({
-      name: f.name,
-      created_at: f.created_at ?? undefined,
-      url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${f.name}`).data.publicUrl,
-    }));
+    .map((f) => {
+      const mime = (f.metadata as { mimetype?: string } | null)?.mimetype ?? "";
+      return {
+        name: f.name,
+        created_at: f.created_at ?? undefined,
+        mime_type: mime || undefined,
+        url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${f.name}`).data.publicUrl,
+      };
+    });
 }
 
 export async function uploadMedia(file: File): Promise<MediaItem> {
   const sb = requireSupabase();
-  if (!file.type.startsWith("image/")) throw new Error("Only image files are allowed.");
-  if (file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
+  const isVideo = file.type.startsWith("video/");
+  const isImage = file.type.startsWith("image/");
+  if (!isImage && !isVideo) throw new Error("Only image or video files are allowed.");
+  if (isVideo && file.size > 100 * 1024 * 1024) throw new Error("Video must be under 100MB.");
+  if (!isVideo && file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
   const name = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const { error } = await sb.storage.from(MEDIA_BUCKET).upload(`uploads/${name}`, file, {
     cacheControl: "31536000",

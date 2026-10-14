@@ -2,6 +2,7 @@ import { useSearchParams } from "react-router-dom";
 import { useSite } from "@/context/SiteContext";
 import { Container, Reveal, SectionHeading, Button } from "@/components/ui";
 import { QuoteForm } from "@/components/QuoteForm";
+import { MediaFrame } from "@/components/MediaFrame";
 import { CheckIcon, PhoneIcon, WhatsAppIcon } from "@/components/Icons";
 
 export default function Quote() {
@@ -31,7 +32,7 @@ export default function Quote() {
               </div>
             </div>
             <div className="mt-8 overflow-hidden rounded-2xl aspect-[16/10] hidden lg:block">
-              <img src={h.hero_image} alt="" loading="lazy" className="h-full w-full object-cover" />
+              <MediaFrame url={h.hero_image} alt="" className="h-full w-full object-cover" />
             </div>
           </Reveal>
           <Reveal delay={100}>

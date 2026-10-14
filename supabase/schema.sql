@@ -152,11 +152,20 @@ create policy "quotes_admin_delete" on public.quote_requests for delete using (p
 
 -- =====================================================================
 -- STORAGE: bucket "media" (public read; admin manage; anon may upload quote attachments)
+-- Images, videos and PDFs are all allowed. The file size limit is high enough
+-- for admin video uploads (100 MB); quote attachments are still capped at 5 MB
+-- by the upload code.
 -- =====================================================================
 insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
-values ('media', 'media', true, 5242880, array['image/jpeg','image/png','image/webp','image/avif','image/gif','application/pdf'])
-on conflict (id) do update set public = true, file_size_limit = 5242880,
-  allowed_mime_types = array['image/jpeg','image/png','image/webp','image/avif','image/gif','application/pdf'];
+values ('media', 'media', true, 104857600, array[
+  'image/jpeg','image/png','image/webp','image/avif','image/gif',
+  'video/mp4','video/quicktime','video/webm','video/x-msvideo','video/mpeg',
+  'application/pdf'])
+on conflict (id) do update set public = true, file_size_limit = 104857600,
+  allowed_mime_types = array[
+  'image/jpeg','image/png','image/webp','image/avif','image/gif',
+  'video/mp4','video/quicktime','video/webm','video/x-msvideo','video/mpeg',
+  'application/pdf'];
 
 drop policy if exists "media_public_read" on storage.objects;
 create policy "media_public_read" on storage.objects for select using (bucket_id = 'media');

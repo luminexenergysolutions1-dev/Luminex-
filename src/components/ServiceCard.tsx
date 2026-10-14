@@ -2,6 +2,7 @@ import { Link } from "react-router-dom";
 import type { Service } from "@/lib/types";
 import { ArrowIcon, serviceIcon } from "./Icons";
 import { cn } from "@/utils/cn";
+import { MediaFrame } from "./MediaFrame";
 
 const accent: Record<Service["icon"], string> = {
   sun: "from-solar/90 to-solar/60 text-charcoal",
@@ -18,10 +19,9 @@ export function ServiceCard({ service, index }: { service: Service; index: numbe
       className="group relative flex flex-col overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-charcoal/5 transition-all duration-300 hover:-translate-y-1 hover:shadow-premium"
     >
       <div className="relative aspect-[4/3] overflow-hidden">
-        <img
-          src={service.image}
+        <MediaFrame
+          url={service.image}
           alt={service.title}
-          loading="lazy"
           className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105"
         />
         <div className="absolute inset-0 bg-gradient-to-t from-charcoal/60 via-transparent to-transparent" />

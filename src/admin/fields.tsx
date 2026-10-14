@@ -1,7 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { listMedia, uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/lib/types";
+import { isVideoUrl } from "@/utils/media";
 import { cn } from "@/utils/cn";
+
+export { isVideoUrl };
 
 export const inputCls =
   "w-full rounded-lg border border-charcoal/12 bg-white px-3.5 min-h-[44px] text-sm text-charcoal focus:border-energy focus:ring-2 focus:ring-energy/20 outline-none";
@@ -89,12 +92,13 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-/** Image picker: URL input + upload + choose from media library */
+/** Image/video picker: URL input + upload + choose from media library. Supports video files. */
 export function ImageInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const video = isVideoUrl(value);
 
   const load = async () => {
     try {
@@ -122,31 +126,53 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
     <div>
       <span className="block text-sm font-semibold text-charcoal mb-1.5">{label}</span>
       <div className="flex flex-col sm:flex-row gap-3">
-        <div className="h-24 w-36 shrink-0 overflow-hidden rounded-lg bg-soft ring-1 ring-charcoal/10">
-          {value && <img src={value} alt="" className="h-full w-full object-cover" />}
+        <div className="h-24 w-36 shrink-0 overflow-hidden rounded-lg bg-soft ring-1 ring-charcoal/10 relative">
+          {video ? (
+            <video src={value} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+          ) : (
+            value && <img src={value} alt="" className="h-full w-full object-cover" />
+          )}
+          {video && (
+            <span className="absolute inset-0 grid place-items-center text-white pointer-events-none">
+              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow"><path d="M8 5v14l11-7z" /></svg>
+            </span>
+          )}
         </div>
         <div className="flex-1 space-y-2">
-          <input className={inputCls} value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="Image URL" />
+          <input className={inputCls} value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or video URL" />
           <div className="flex flex-wrap gap-2">
             <label className="inline-flex items-center min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold cursor-pointer hover:bg-ice">
-              {busy ? "Uploading…" : "Upload image"}
-              <input type="file" accept="image/*" className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} />
+              {busy ? "Uploading…" : video || value ? "Upload another" : "Upload image or video"}
+              <input type="file" accept="image/*,video/*" className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} />
             </label>
             <button type="button" onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold hover:bg-ice">
               {open ? "Close library" : "Choose from library"}
             </button>
           </div>
+          <p className="text-xs text-charcoal/50">Images up to 5MB · videos (MP4, MOV, WebM) up to 100MB.</p>
           {err && <p className="text-xs text-red-600">{err}</p>}
         </div>
       </div>
       {open && (
         <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto rounded-lg border border-charcoal/10 p-2">
-          {items.length === 0 && <p className="col-span-full text-xs text-charcoal/50 p-2">No images in the library yet.</p>}
-          {items.map((m) => (
-            <button key={m.name} type="button" onClick={() => { onChange(m.url); setOpen(false); }} className={cn("aspect-square overflow-hidden rounded-md ring-2", value === m.url ? "ring-energy" : "ring-transparent hover:ring-charcoal/20")}>
-              <img src={m.url} alt={m.name} className="h-full w-full object-cover" loading="lazy" />
-            </button>
-          ))}
+          {items.length === 0 && <p className="col-span-full text-xs text-charcoal/50 p-2">No images or videos in the library yet.</p>}
+          {items.map((m) => {
+            const v = isVideoUrl(m.url);
+            return (
+              <button key={m.name} type="button" onClick={() => { onChange(m.url); setOpen(false); }} className={cn("relative aspect-square overflow-hidden rounded-md ring-2", value === m.url ? "ring-energy" : "ring-transparent hover:ring-charcoal/20")}>
+                {v ? (
+                  <>
+                    <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+                    <span className="absolute inset-0 grid place-items-center text-white bg-charcoal/25">
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
+                    </span>
+                  </>
+                ) : (
+                  <img src={m.url} alt={m.name} className="h-full w-full object-cover" loading="lazy" />
+                )}
+              </button>
+            );
+          })}
         </div>
       )}
     </div>
