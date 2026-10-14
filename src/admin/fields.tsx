@@ -1,10 +1,10 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { listMedia, uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/lib/types";
-import { isVideoUrl } from "@/utils/media";
+import { isVideoUrl, isImageUrl } from "@/utils/media";
 import { cn } from "@/utils/cn";
 
-export { isVideoUrl };
+export { isVideoUrl, isImageUrl };
 
 export const inputCls =
   "w-full rounded-lg border border-charcoal/12 bg-white px-3.5 min-h-[44px] text-sm text-charcoal focus:border-energy focus:ring-2 focus:ring-energy/20 outline-none";

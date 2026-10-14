@@ -1,4 +1,4 @@
-import { requireSupabase, supabase } from "./supabase";
+import { isVideoUrl, isImageUrl } from "@/utils/media";
 import { defaultSiteData } from "./defaults";
 import type {
   Faq,
@@ -169,9 +169,9 @@ export async function listMedia(): Promise<MediaItem[]> {
 
 export async function uploadMedia(file: File): Promise<MediaItem> {
   const sb = requireSupabase();
-  const isVideo = file.type.startsWith("video/");
-  const isImage = file.type.startsWith("image/");
-  if (!isImage && !isVideo) throw new Error("Only image or video files are allowed.");
+  const isVideo = isVideoUrl(file.name);
+  const isImage = isImageUrl(file.name);
+  if (!isImage && !isVideo) throw new Error("Unsupported file type. Only image and video files are allowed.");
   if (isVideo && file.size > 100 * 1024 * 1024) throw new Error("Video must be under 100MB.");
   if (!isVideo && file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
   const name = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
