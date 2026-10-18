@@ -190,6 +190,149 @@ export const defaultServices: Service[] = [
     },
     3
   ),
+  svc(
+    {
+      id: "utility-solar",
+      slug: "utility-solar",
+      title: "Utility-Scale Solar",
+      icon: "sun",
+      image: "/images/utility-solar.jpg",
+      cta_text: "Explore Utility Solar",
+      short_description:
+        "Large-scale solar power systems designed for commercial and industrial properties, farms, and institutional facilities.",
+      overview:
+        "Ghana's commercial and industrial sectors have significant solar potential. Luminex designs utility-scale systems that maximize rooftop and ground-space efficiency — delivering predictable revenue-grade power and substantial bill reductions.",
+      provides: [
+        "Large-scale solar system design and engineering",
+        "Ground-mounted and rooftop solar installations",
+        "Grid interconnection and net-metering setup",
+        "Battery storage integration for peak-shaving",
+        "Energy monitoring and performance analytics",
+        "Operations and maintenance contracts",
+      ],
+      benefits: [
+        "Significant reduction in commercial electricity costs",
+        "Predictable, 20+ year energy revenue stream",
+        "Carbon footprint reduction and ESG compliance",
+        "Energy independence from grid volatility",
+        "Quick ROI with accelerated depreciation incentives",
+      ],
+      applications: [
+        "Commercial buildings and shopping malls",
+        "Industrial factories and warehouses",
+        "Agricultural farms and irrigation systems",
+        "Government and institutional facilities",
+        "Mixed-use developments",
+      ],
+      process: [
+        "Feasibility study and solar potential assessment",
+        "System design and load analysis",
+        "Permitting and grid interconnection approval",
+        "Procurement and equipment supply",
+        "Professional installation and commissioning",
+        "Training and handover, ongoing O&M support",
+      ],
+      why_luminex:
+        "Because we combine deep technical expertise with commercial acumen — we design systems that perform as promised and deliver the ROI our commercial clients need.",
+    },
+    4
+  ),
+  svc(
+    {
+      id: "pv-design",
+      slug: "pv-design",
+      title: "PV Design",
+      icon: "sun",
+      image: "/images/pv-design.jpg",
+      cta_text: "Request PV Design",
+      short_description:
+        "Custom solar photovoltaic system design optimized for your specific site conditions, energy goals, and budget.",
+      overview:
+        "Not all solar systems are created equal. Luminex's PV Design service provides detailed system modeling, shade analysis, and performance forecasting before a single panel is ordered — ensuring your system is sized exactly to your needs.",
+      provides: [
+        "Site survey and solar resource assessment",
+        " shade analysis and performance modeling",
+        "System sizing and electrical single-line diagram",
+        "Panel, inverter, and battery selection optimized to your goals",
+        "Roof or ground mount design and structural analysis",
+        "Interconnection application support",
+      ],
+      benefits: [
+        "Avoid costly over- or under-sizing of your system",
+        "Maximum energy production per dollar invested",
+        "Clear understanding of expected ROI and payback period",
+        "Reduced risk of design-change orders during construction",
+        "Optimized system for your specific climate and usage patterns",
+      ],
+      applications: [
+        "Residential homes with complex roof geometries",
+        "Small commercial buildings",
+        "Properties with shading obstacles",
+        "Systems where every square foot counts",
+        "Retrofits and expansions of existing systems",
+      ],
+      process: [
+        "Initial consultation and energy usage review",
+        "Detailed site survey and measurement",
+        "3D shading analysis and performance simulation",
+        "Custom system design and electrical layout",
+        "Quotation and financing options",
+        "Design review and approval",
+      ],
+      why_luminex:
+        "Because we believe a well-designed system is the foundation of every successful solar project — we obsess over the details so our clients get it right the first time.",
+    },
+    5
+  ),
+  svc(
+    {
+      id: "consultancy-solar-pv",
+      slug: "consultancy-solar-pv",
+      title: "Consultancy for Solar PV Projects",
+      icon: "sun",
+      image: "/images/consultancy.jpg",
+      cta_text: "Schedule Consultation",
+      short_description:
+        "Expert guidance to help you define, plan, and execute a solar PV project that meets your energy and financial objectives.",
+      overview:
+        "Luminex's consultancy service bridges the gap between intention and installation. We work with property owners, developers, and businesses to clarify requirements, evaluate options, and create a roadmap for a successful solar project — from feasibility through commissioning.",
+      provides: [
+        "Project feasibility and viability assessment",
+        "Energy needs analysis and load profiling",
+        "Financial modeling and ROI projection",
+        "Option comparison: grid-tied, hybrid, off-grid",
+        "Vendor evaluation and selection support",
+        "Planning and permitting guidance",
+        "Commissioning and handover support",
+      ],
+      benefits: [
+        "Confidence that your project is properly scoped and priced",
+        "Conflicting advice consolidated into a single recommend",
+        "Financial transparency from Day 1",
+        "Faster timeline from decision to installation",
+        "Reduced risk of scope creep and budget overruns",
+        "Expert support throughout the entire project lifecycle",
+      ],
+      applications: [
+        "Property owners considering solar for the first time",
+        "Developers evaluating solar as a value-add amenity",
+        "Businesses assessing solar for cost-reduction goals",
+        "Institutions (schools, hospitals, gov't) exploring solar",
+        "Existing solar owners considering system expansion",
+      ],
+      process: [
+        "Initial consultation to understand goals and constraints",
+        "Site survey and energy usage analysis",
+        "Option development and financial modeling",
+        "Recommendation and roadmap presentation",
+        "Execution planning and vendor selection",
+        "Construction oversight and commissioning support",
+      ],
+      why_luminex:
+        "Because solar projects are significant investments — we're here to ensure you make informed decisions every step of the way.",
+    },
+    6
+  ),
 ];
 
 export const defaultSiteData: SiteData = {
@@ -211,9 +354,8 @@ export const defaultSiteData: SiteData = {
       "Luminex Energy Solutions is an officially registered business in Ghana, established in September 2026.\n\nWe are a modern provider of reliable power, safe electrical infrastructure and premium air conditioning.\n\nWe deliver high-tech, affordable and energy-efficient solutions designed to keep homes, businesses and other spaces reliably powered and comfortably cooled.",
     about_image: "/images/about.jpg",
     about_cta: "Learn More About Luminex",
-    services_title: "One team for power, electricity and cooling.",
-    services_intro:
-      "Four connected services, delivered by one accountable team — from the sun on your roof to the cool air in your room.",
+    services_title: "One team for solar power, electricity and indoor cooling.",
+    services_intro: "Four connected services, delivered by one accountable team — from the solar on your roof to the cool air in your room.",
     advantages_title: "Why Choose Luminex?",
     advantages: [
       {
