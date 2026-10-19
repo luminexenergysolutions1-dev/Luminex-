@@ -192,16 +192,16 @@ export const defaultServices: Service[] = [
   ),
   svc(
     {
-      id: "utility-solar",
-      slug: "utility-solar",
-      title: "Utility-Scale Solar",
+      id: "utility-solar-pv-design",
+      slug: "utility-solar-pv-design",
+      title: "Utility-Scale Solar PV Design",
       icon: "sun",
-      image: "/images/utility-solar.jpg",
-      cta_text: "Explore Utility Solar",
+      image: "/images/utility-solar-pv-design.jpg",
+      cta_text: "Explore Utility Solar PV",
       short_description:
         "Large-scale solar power systems designed for commercial and industrial properties, farms, and institutional facilities.",
       overview:
-        "Ghana's commercial and industrial sectors have significant solar potential. Luminex designs utility-scale systems that maximize rooftop and ground-space efficiency — delivering predictable revenue-grade power and substantial bill reductions.",
+        "Ghana's commercial and industrial sectors have significant solar potential. Luminex designs utility-scale solar PV systems that maximize rooftop and ground-space efficiency — delivering predictable revenue-grade power and substantial bill reductions.",
       provides: [
         "Large-scale solar system design and engineering",
         "Ground-mounted and rooftop solar installations",
@@ -236,53 +236,6 @@ export const defaultServices: Service[] = [
         "Because we combine deep technical expertise with commercial acumen — we design systems that perform as promised and deliver the ROI our commercial clients need.",
     },
     4
-  ),
-  svc(
-    {
-      id: "pv-design",
-      slug: "pv-design",
-      title: "PV Design",
-      icon: "sun",
-      image: "/images/pv-design.jpg",
-      cta_text: "Request PV Design",
-      short_description:
-        "Custom solar photovoltaic system design optimized for your specific site conditions, energy goals, and budget.",
-      overview:
-        "Not all solar systems are created equal. Luminex's PV Design service provides detailed system modeling, shade analysis, and performance forecasting before a single panel is ordered — ensuring your system is sized exactly to your needs.",
-      provides: [
-        "Site survey and solar resource assessment",
-        " shade analysis and performance modeling",
-        "System sizing and electrical single-line diagram",
-        "Panel, inverter, and battery selection optimized to your goals",
-        "Roof or ground mount design and structural analysis",
-        "Interconnection application support",
-      ],
-      benefits: [
-        "Avoid costly over- or under-sizing of your system",
-        "Maximum energy production per dollar invested",
-        "Clear understanding of expected ROI and payback period",
-        "Reduced risk of design-change orders during construction",
-        "Optimized system for your specific climate and usage patterns",
-      ],
-      applications: [
-        "Residential homes with complex roof geometries",
-        "Small commercial buildings",
-        "Properties with shading obstacles",
-        "Systems where every square foot counts",
-        "Retrofits and expansions of existing systems",
-      ],
-      process: [
-        "Initial consultation and energy usage review",
-        "Detailed site survey and measurement",
-        "3D shading analysis and performance simulation",
-        "Custom system design and electrical layout",
-        "Quotation and financing options",
-        "Design review and approval",
-      ],
-      why_luminex:
-        "Because we believe a well-designed system is the foundation of every successful solar project — we obsess over the details so our clients get it right the first time.",
-    },
-    5
   ),
   svc(
     {
@@ -331,7 +284,7 @@ export const defaultServices: Service[] = [
       why_luminex:
         "Because solar projects are significant investments — we're here to ensure you make informed decisions every step of the way.",
     },
-    6
+    5
   ),
 ];
 

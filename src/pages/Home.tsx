@@ -29,6 +29,7 @@ export default function Home() {
   const { homepage: h } = data;
   const services = data.services.filter((s) => s.published).sort((a, b) => a.sort_order - b.sort_order);
   const projects = data.projects.filter((p) => p.published).slice(0, 3);
+  const [showAll, setShowAll] = useState(false);
 
   return (
     <>
@@ -143,12 +144,32 @@ export default function Home() {
             </Link>
           </Reveal>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {services.map((s, i) => (
+            {showAll ? services : services.slice(0, 3).map((s, i) => (
               <Reveal key={s.id} delay={i * 80}>
                 <ServiceCard service={s} index={i} />
               </Reveal>
             ))}
+            {showAll ? null : (
+              <Reveal className="mt-14">
+                <Button
+                  onClick={() => setShowAll(true)}
+                  className="flex justify-center py-3 px-6 text-energy border border-energy/30 rounded-md hover:bg-energy/5"
+                >
+                  View More <ArrowIcon width={18} height={18} className="transition-transform group-hover:translate-x-1" />
+                </Button>
+              </Reveal>
+            )}
           </div>
+          {showAll && (
+            <Reveal className="mt-14">
+              <Button
+                onClick={() => setShowAll(false)}
+                className="flex justify-center py-3 px-6 text-charcoal border border-charcoal/30 rounded-md hover:bg-charcoal/5"
+              >
+                View Less <ArrowIcon width={18} height={18} className="transition-transform group-hover:translate-x-1" />
+              </Button>
+            </Reveal>
+          )}
           <Reveal className="mt-14">
             <SolutionFinder />
           </Reveal>
