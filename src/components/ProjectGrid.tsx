@@ -1,11 +1,37 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import type { Project } from "@/lib/types";
 import { CloseIcon, MapIcon } from "./Icons";
 import { Button } from "./ui";
 import { MediaFrame } from "./MediaFrame";
 
+function ChevronLeftIcon({ className = "" }) {
+  return (
+    <svg className={`h-5 w-5 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M15.41 7L9 13l6.41 6" />
+    </svg>
+  );
+}
+
+function ChevronRightIcon({ className = "" }) {
+  return (
+    <svg className={`h-5 w-5 ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round">
+      <path d="M8.59 7l6.41 6-6.41 6" />
+    </svg>
+  );
+}
+
 export function ProjectGrid({ projects }: { projects: Project[] }) {
   const [active, setActive] = useState<Project | null>(null);
+  const reelRef = useRef<HTMLDivElement>(null);
+  const scrollAmt = 320;
+
+  const scrollTo = (dir: 1 | -1) => {
+    const el = reelRef.current;
+    if (!el) return;
+    const max = el.scrollWidth - el.clientWidth;
+    const pos = Math.max(0, Math.min(el.scrollLeft + dir * scrollAmt, max));
+    el.scrollTo({ left: pos, behavior: "smooth" });
+  };
 
   if (projects.length === 0) {
     return (
@@ -23,25 +49,49 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
 
   return (
     <>
-      <ul className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-        {projects.map((p) => (
-          <li key={p.id}>
-            <button
-              onClick={() => setActive(p)}
-              className="group block w-full text-left overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-charcoal/5 transition hover:-translate-y-1 hover:shadow-premium"
+      <div className="relative group">
+        <button
+          onClick={() => scrollTo(-1)}
+          className="absolute -left-3 top-1/2 -translate-y-1/2 z-10 hidden sm:grid h-10 w-10 place-items-center rounded-full bg-white text-charcoal shadow-md ring-1 ring-charcoal/10 transition hover:bg-energy hover:text-white focus:outline-none focus:ring-2 focus:ring-energy/30 group-disabled:opacity-50"
+          aria-label="Scroll left"
+        >
+          <ChevronLeftIcon />
+        </button>
+
+        <div
+          ref={reelRef}
+          className="flex gap-4 overflow-x-auto scroll-smooth scroll-px-4 pb-2 snap-mandatory snap-x no-scrollbar [-webkit-overflow-scrolling:touch]"
+        >
+          {projects.map((p) => (
+            <div
+              key={p.id}
+              className="snap-start flex-none w-[280px] sm:w-[260px] last:mr-4 sm:last:mr-0"
             >
-              <div className="aspect-[4/3] overflow-hidden">
-                <MediaFrame url={p.image} alt={p.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
-              </div>
-              <div className="p-5">
-                <span className="inline-block rounded-full bg-ice px-2.5 py-1 text-[11px] font-semibold text-energy">{p.category}</span>
-                <h3 className="mt-3 text-lg font-bold leading-snug">{p.title}</h3>
-                <p className="mt-1.5 flex items-center gap-1.5 text-sm text-charcoal/55"><MapIcon width={16} height={16} /> {p.location}</p>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+              <button
+                onClick={() => setActive(p)}
+                className="group block w-full text-left overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-charcoal/5 transition transform hover:-translate-y-1 hover:shadow-premium"
+              >
+                <div className="aspect-[4/3] overflow-hidden">
+                  <MediaFrame url={p.image} alt={p.title} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                </div>
+                <div className="p-5">
+                  <span className="inline-block rounded-full bg-ice px-2.5 py-1 text-[11px] font-semibold text-energy">{p.category}</span>
+                  <h3 className="mt-3 text-lg font-bold leading-snug">{p.title}</h3>
+                  <p className="mt-1.5 flex items-center gap-1.5 text-sm text-charcoal/55"><MapIcon width={16} height={16} /> {p.location || "Ghana"}</p>
+                </div>
+              </button>
+            </div>
+          ))}
+        </div>
+
+        <button
+          onClick={() => scrollTo(1)}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 z-10 hidden sm:grid h-10 w-10 place-items-center rounded-full bg-white text-charcoal shadow-md ring-1 ring-charcoal/10 transition hover:bg-energy hover:text-white focus:outline-none focus:ring-2 focus:ring-energy/30 group-disabled:opacity-50"
+          aria-label="Scroll right"
+        >
+          <ChevronRightIcon />
+        </button>
+      </div>
 
       {active && (
         <div className="fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-charcoal/70 backdrop-blur-sm p-0 sm:p-6" onClick={() => setActive(null)} role="dialog" aria-modal="true" aria-label={active.title}>
@@ -55,7 +105,7 @@ export function ProjectGrid({ projects }: { projects: Project[] }) {
             <div className="p-6 sm:p-8">
               <div className="flex flex-wrap items-center gap-3 text-sm">
                 <span className="rounded-full bg-ice px-3 py-1 font-semibold text-energy">{active.category}</span>
-                <span className="flex items-center gap-1.5 text-charcoal/55"><MapIcon width={16} height={16} /> {active.location}</span>
+                <span className="flex items-center gap-1.5 text-charcoal/55"><MapIcon width={16} height={16} /> {active.location || "Ghana"}</span>
                 {active.project_date && <span className="text-charcoal/55">{new Date(active.project_date).toLocaleDateString("en-GB", { month: "long", year: "numeric" })}</span>}
               </div>
               <h3 className="mt-4 text-2xl sm:text-3xl font-bold">{active.title}</h3>

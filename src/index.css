@@ -91,3 +91,39 @@ body {
 
 .no-scrollbar::-webkit-scrollbar { display: none; }
 .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* Horizontal project reel */
+.project-reel {
+  display: flex;
+  gap: 1rem;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  scroll-behavior: smooth;
+  -webkit-overflow-scrolling: touch;
+  padding-bottom: 0.5rem;
+}
+.project-reel::-webkit-scrollbar { height: 4px; }
+.project-reel::-webkit-scrollbar-thumb { background: #e5e7eb; border-radius: 2px; }
+.project-reel:focus { outline: none; }
+.project-card-reel {
+  scroll-snap-align: start;
+  flex: 0 0 280px;
+  max-width: 280px;
+}
+@media (min-width: 650px) {
+  .project-card-reel { flex: 0 0 260px; max-width: 260px; }
+}
+
+/* Chatbot transition overrides */
+.chatbot-window { transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1); }
+.chatbot-launcher { transition: all 0.2s ease; }
+
+@media (prefers-reduced-motion: reduce) {
+  .project-reel { scroll-behavior: auto; }
+  .chatbot-window,
+  .chatbot-launcher,
+  .project-card-reel,
+  .project-card-reel button {
+    transition: none !important;
+  }
+}

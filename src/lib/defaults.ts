@@ -529,4 +529,6 @@ export const PROJECT_CATEGORIES = [
   "Electrical",
   "Air Conditioning",
   "Energy Efficiency",
+  "Utility-Scale Solar",
+  "Consultancy",
 ];
