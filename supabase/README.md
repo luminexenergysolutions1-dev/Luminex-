@@ -11,6 +11,17 @@ https://supabase.com → New project.
 Open **SQL Editor** and run the full contents of `supabase/schema.sql`.
 This creates all tables, Row Level Security policies, the `media` storage bucket and seed settings.
 
+## 2a. Video uploads (MP4 / WebM)
+The `media` bucket only stores the file types listed in `allowed_mime_types`.
+If an MP4 upload fails with `mime type video/mp4 is not supported`, the bucket
+was created from an older schema version. Run `supabase/fix-media-bucket.sql`
+once - it updates the existing bucket (no new bucket is created) so that
+`video/mp4`, `video/webm`, `video/quicktime`, `video/mpeg` and `video/x-msvideo`
+are accepted alongside the image types and PDF, with a 100 MB limit.
+The upload allow-list in `src/utils/media.ts` is kept in sync with that bucket
+configuration, and every uploaded file is identified by its magic bytes rather
+than by the browser supplied MIME type.
+
 ## 3. Configure environment variables
 Create a `.env` file in the project root (never commit it):
 

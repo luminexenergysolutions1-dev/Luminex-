@@ -1,4 +1,11 @@
 import { isVideoUrl, isImageUrl } from "@/utils/media";
+import {
+  MediaValidationError,
+  formatFileSize,
+  maxUploadBytes,
+  resolveUpload,
+  storageErrorMessage,
+} from "@/utils/media";
 import { defaultSiteData } from "./defaults";
 import { requireSupabase, supabase } from "./supabase";
 import type {
@@ -125,9 +132,19 @@ export async function submitQuote(input: QuoteInput) {
 
 export async function uploadQuoteAttachment(file: File) {
   const sb = requireSupabase();
+  const resolved = await resolveUpload(file);
+  if (resolved.kind === "video") {
+    throw new MediaValidationError("Quote attachments must be an image or a PDF document.");
+  }
+  if (file.size > 5 * 1024 * 1024) {
+    throw new MediaValidationError(`Attachment must be under 5MB (this file is ${formatFileSize(file.size)}).`);
+  }
   const path = `quotes/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
-  if (error) throw error;
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file, {
+    cacheControl: "31536000",
+    contentType: resolved.contentType,
+  });
+  if (error) throw new Error(storageErrorMessage(error.message, resolved.contentType));
   return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
@@ -170,18 +187,27 @@ export async function listMedia(): Promise<MediaItem[]> {
 
 export async function uploadMedia(file: File): Promise<MediaItem> {
   const sb = requireSupabase();
-  const isVideo = isVideoUrl(file.name);
-  const isImage = isImageUrl(file.name);
-  if (!isImage && !isVideo) throw new Error("Unsupported file type. Only image and video files are allowed.");
-  if (isVideo && file.size > 100 * 1024 * 1024) throw new Error("Video must be under 100MB.");
-  if (!isVideo && file.size > 5 * 1024 * 1024) throw new Error("Image must be under 5MB.");
-  const name = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  // The browser supplied MIME type is not trusted: the file is identified by its
+  // magic bytes and the canonical type is stored with the object.
+  const resolved = await resolveUpload(file);
+  const maxBytes = maxUploadBytes(resolved.kind);
+  if (file.size > maxBytes) {
+    throw new MediaValidationError(
+      resolved.kind === "video"
+        ? `Video must be under 100MB (this file is ${formatFileSize(file.size)}).`
+        : `${resolved.kind === "pdf" ? "PDF" : "Image"} must be under 5MB (this file is ${formatFileSize(file.size)}).`
+    );
+  }
+  const base = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
+  const name = `${Date.now()}-${base}.${resolved.extension}`;
   const { error } = await sb.storage.from(MEDIA_BUCKET).upload(`uploads/${name}`, file, {
     cacheControl: "31536000",
+    contentType: resolved.contentType,
   });
-  if (error) throw error;
+  if (error) throw new Error(storageErrorMessage(error.message, resolved.contentType));
   return {
     name,
+    mime_type: resolved.contentType,
     url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${name}`).data.publicUrl,
   };
 }

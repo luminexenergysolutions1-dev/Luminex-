@@ -4,6 +4,7 @@ import { QUOTE_STATUSES } from "@/lib/defaults";
 import type { MediaItem, QuoteRequest, QuoteStatus } from "@/lib/types";
 import { AdminPageTitle } from "../AdminLayout";
 import { inputCls, isVideoUrl, isImageUrl } from "../fields";
+import { UPLOAD_ACCEPT_ATTRIBUTE } from "@/utils/media";
 import { cn } from "@/utils/cn";
 
 const statusColor: Record<QuoteStatus, string> = {
@@ -144,14 +145,23 @@ export function MediaAdmin() {
     if (!files) return;
     setBusy(true);
     setErr("");
-    try {
-      for (const f of Array.from(files)) await uploadMedia(f);
-      await load();
-    } catch (e) {
-      setErr((e as Error).message);
-    } finally {
-      setBusy(false);
+    const failures: string[] = [];
+    let uploaded = 0;
+    for (const f of Array.from(files)) {
+      try {
+        await uploadMedia(f);
+        uploaded += 1;
+      } catch (e) {
+        failures.push(`${f.name}: ${(e as Error).message}`);
+      }
     }
+    await load();
+    if (failures.length) {
+      setErr(
+        `${uploaded} file${uploaded === 1 ? "" : "s"} uploaded. ${failures.length} failed — ${failures.join(" | ")}`
+      );
+    }
+    setBusy(false);
   };
 
   const remove = async (name: string) => {
@@ -170,11 +180,11 @@ export function MediaAdmin() {
     <>
       <AdminPageTitle
         title="Media Library"
-        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted formats: images (JPG, PNG, GIF, SVG, WebP, TIFF, BMP, HEIC, HEIF) and videos (MP4, MOV, WebM, AVI, MKV, M4V, MPEG, WMV, FLV). No extension restrictions — files validated by MIME type. Max 5MB images, 100MB videos."
+        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted formats: images (JPG, PNG, GIF, WebP, AVIF) and videos (MP4, WebM, MOV, MPEG, AVI) plus PDF for documents. Every file is validated by its real content, not only by its extension. Max 5MB images and PDFs, 100MB videos."
         actions={
           <label className="min-h-[44px] inline-flex items-center rounded-lg bg-charcoal px-4 text-sm font-semibold text-white cursor-pointer">
             {busy ? "Uploading…" : "Upload images or videos"}
-            <input type="file" accept="image/*,video/*" multiple className="sr-only" onChange={(e) => upload(e.target.files)} />
+            <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} multiple className="sr-only" onChange={(e) => upload(e.target.files)} />
           </label>
         }
       />

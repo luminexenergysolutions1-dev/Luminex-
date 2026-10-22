@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { listMedia, uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/lib/types";
 import { isVideoUrl, isImageUrl } from "@/utils/media";
+import { UPLOAD_ACCEPT_ATTRIBUTE } from "@/utils/media";
 import { cn } from "@/utils/cn";
 
 export { isVideoUrl, isImageUrl };
@@ -98,6 +99,8 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [previewSrc, setPreviewSrc] = useState("");
+  const [previewName, setPreviewName] = useState("");
   const video = isVideoUrl(value);
 
   const load = async () => {
@@ -108,10 +111,18 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
     }
   };
 
+  useEffect(() => {
+    return () => {
+      if (previewSrc) URL.revokeObjectURL(previewSrc);
+    };
+  }, [previewSrc]);
+
   const onUpload = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
     setErr("");
+    setPreviewSrc(URL.createObjectURL(f));
+    setPreviewName(f.name);
     try {
       const m = await uploadMedia(f);
       onChange(m.url);
@@ -127,12 +138,18 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
       <span className="block text-sm font-semibold text-charcoal mb-1.5">{label}</span>
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="h-24 w-36 shrink-0 overflow-hidden rounded-lg bg-soft ring-1 ring-charcoal/10 relative">
-          {video ? (
+          {previewSrc ? (
+            isVideoUrl(previewName) ? (
+              <video src={previewSrc} className="h-full w-full object-cover" controls playsInline preload="metadata" />
+            ) : (
+              <img src={previewSrc} alt="" className="h-full w-full object-cover" />
+            )
+          ) : video ? (
             <video src={value} className="h-full w-full object-cover" muted playsInline preload="metadata" />
           ) : (
             value && <img src={value} alt="" className="h-full w-full object-cover" />
           )}
-          {video && (
+          {video && !previewSrc && (
             <span className="absolute inset-0 grid place-items-center text-white pointer-events-none">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow"><path d="M8 5v14l11-7z" /></svg>
             </span>
@@ -143,13 +160,15 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
           <div className="flex flex-wrap gap-2">
             <label className="inline-flex items-center min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold cursor-pointer hover:bg-ice">
               {busy ? "Uploading…" : video || value ? "Upload another" : "Upload image or video"}
-              <input type="file" accept="image/*,video/*" className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} />
+              <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} />
             </label>
             <button type="button" onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold hover:bg-ice">
               {open ? "Close library" : "Choose from library"}
             </button>
           </div>
-          <p className="text-xs text-charcoal/50">Images up to 5MB · videos (MP4, MOV, WebM) up to 100MB.</p>
+          <p className="text-xs text-charcoal/50">
+            Images up to 5MB · videos (MP4, WebM, MOV, MPEG, AVI) up to 100MB · PDF up to 5MB. Every file is checked by its real content, not only by its name.
+          </p>
           {err && <p className="text-xs text-red-600">{err}</p>}
         </div>
       </div>
