@@ -29,9 +29,10 @@ export const MEDIA_FIT = "h-full w-full object-cover";
 
 /* ------------------------------------------------------------------ *
  * Upload validation
- * The allow-list below mirrors the `media` storage bucket configuration
- * in supabase/schema.sql. Keep both in sync: the bucket rejects any
- * MIME type that is not listed with "mime type ... is not supported".
+ *
+ * The allow-list mirrors the `media` storage bucket configuration in
+ * supabase/schema.sql: Supabase Storage rejects any MIME type that is not
+ * listed with "mime type ... is not supported".
  * ------------------------------------------------------------------ */
 
 export type MediaUploadKind = "image" | "video" | "pdf";
@@ -46,10 +47,17 @@ export const ALLOWED_IMAGE_TYPES = [
 
 export const ALLOWED_VIDEO_TYPES = [
   "video/mp4",
-  "video/webm",
+  "video/x-m4v",
   "video/quicktime",
-  "video/mpeg",
+  "video/webm",
+  "video/x-matroska",
   "video/x-msvideo",
+  "video/mpeg",
+  "video/3gpp",
+  "video/x-ms-wmv",
+  "video/x-flv",
+  "video/ogg",
+  "video/mp2t",
 ] as const;
 
 export const ALLOWED_PDF_TYPES = ["application/pdf"] as const;
@@ -74,11 +82,15 @@ export const UPLOAD_ACCEPT_ATTRIBUTE = [
   ".pdf",
   ".mp4",
   ".m4v",
-  ".webm",
   ".mov",
+  ".webm",
+  ".mkv",
+  ".avi",
   ".mpeg",
   ".mpg",
-  ".avi",
+  ".3gp",
+  ".wmv",
+  ".flv",
 ].join(",");
 
 const EXTENSION_TO_MIME: Record<string, string> = {
@@ -91,13 +103,19 @@ const EXTENSION_TO_MIME: Record<string, string> = {
   avif: "image/avif",
   pdf: "application/pdf",
   mp4: "video/mp4",
-  m4v: "video/mp4",
+  m4v: "video/x-m4v",
   webm: "video/webm",
   mov: "video/quicktime",
   qt: "video/quicktime",
+  mkv: "video/x-matroska",
+  avi: "video/x-msvideo",
   mpeg: "video/mpeg",
   mpg: "video/mpeg",
-  avi: "video/x-msvideo",
+  mpe: "video/mpeg",
+  "3gp": "video/3gpp",
+  "3g2": "video/3gpp",
+  wmv: "video/x-ms-wmv",
+  flv: "video/x-flv",
 };
 
 const MIME_TO_EXTENSION: Record<string, string> = {
@@ -108,10 +126,15 @@ const MIME_TO_EXTENSION: Record<string, string> = {
   "image/avif": "avif",
   "application/pdf": "pdf",
   "video/mp4": "mp4",
+  "video/x-m4v": "m4v",
   "video/webm": "webm",
   "video/quicktime": "mov",
-  "video/mpeg": "mpeg",
+  "video/x-matroska": "mkv",
   "video/x-msvideo": "avi",
+  "video/mpeg": "mpeg",
+  "video/3gpp": "3gp",
+  "video/x-ms-wmv": "wmv",
+  "video/x-flv": "flv",
 };
 
 export function kindForMimeType(mime: string): MediaUploadKind | null {
@@ -128,9 +151,9 @@ const ascii = (bytes: Uint8Array, start: number, length: number): string => {
 };
 
 /**
- * Identifies a file by its magic bytes. The browser supplied MIME type is
- * not trusted: it is frequently wrong (e.g. "application/octet-stream" for
- * .mp4 on Windows) and is attacker controlled.
+ * Identifies a file by its magic bytes. The browser supplied MIME type is not
+ * trusted: it is frequently wrong (e.g. "application/octet-stream" for .mp4 on
+ * Windows) and it is attacker controlled.
  */
 export function sniffMimeType(bytes: Uint8Array): string | null {
   if (bytes.length < 12) return null;
@@ -159,13 +182,15 @@ export function sniffMimeType(bytes: Uint8Array): string | null {
     if (form === "AVI ") return "video/x-msvideo";
     return null;
   }
-  // ISO base media file format: MP4, MOV and AVIF all start with an "ftyp" box
+  // ISO base media file format: MP4, M4V, 3GP, MOV and AVIF start with an "ftyp" box
   if (ascii(bytes, 4, 4) === "ftyp") {
     const brand = ascii(bytes, 8, 4);
     if (brand === "qt  ") return "video/quicktime";
     if (brand === "avif" || brand === "avis") return "image/avif";
+    if (["3gp4", "3gp5", "3gp6", "3g2a", "3gsf", "3gpp"].includes(brand)) return "video/3gpp";
+    if (brand === "M4V " || brand === "M4V" || brand === "m4v ") return "video/x-m4v";
     if (
-      ["isom", "iso2", "iso4", "iso5", "iso6", "iso8", "iso9", "mp41", "mp42", "avc1", "avc3", "dash", "mmp4", "M4V "].includes(
+      ["isom", "iso2", "iso4", "iso5", "iso6", "iso8", "iso9", "mp41", "mp42", "avc1", "avc3", "dash", "mmp4", "M4A "].includes(
         brand
       )
     ) {
@@ -173,13 +198,30 @@ export function sniffMimeType(bytes: Uint8Array): string | null {
     }
     return null;
   }
-  // Matroska / WebM: EBML header
+  // Matroska / WebM: EBML header. The DocType string further in tells them apart.
   if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+    const head = ascii(bytes, 0, Math.min(bytes.length, 256));
+    if (head.includes("matroska")) return "video/x-matroska";
     return "video/webm";
   }
-  // MPEG video stream
+  // MPEG program stream
   if (bytes[0] === 0x00 && bytes[1] === 0x00 && bytes[2] === 0x01 && (bytes[3] === 0xba || bytes[3] === 0xb3)) {
     return "video/mpeg";
+  }
+  // FLV
+  if (ascii(bytes, 0, 3) === "FLV" && bytes[3] === 0x01) return "video/x-flv";
+  // ASF container (WMV / ASF)
+  if (
+    bytes[0] === 0x30 &&
+    bytes[1] === 0x26 &&
+    bytes[2] === 0xb2 &&
+    bytes[3] === 0x75 &&
+    bytes[4] === 0x8e &&
+    bytes[5] === 0x66 &&
+    bytes[6] === 0xcf &&
+    bytes[7] === 0x11
+  ) {
+    return "video/x-ms-wmv";
   }
   // PDF document
   if (ascii(bytes, 0, 5) === "%PDF-") return "application/pdf";
@@ -195,6 +237,8 @@ export interface ResolvedUpload {
   extension: string;
   /** True when the browser reported a MIME type that disagrees with the file content. */
   browserTypeMismatch: boolean;
+  /** True when the file content matched a known signature. */
+  contentVerified: boolean;
 }
 
 export class MediaValidationError extends Error {
@@ -211,8 +255,13 @@ const describe = (kind: MediaUploadKind) =>
   kind === "video" ? "video" : kind === "image" ? "image" : "PDF document";
 
 /**
- * Validates a selected file against the storage allow-list using the real
- * file content, then returns the canonical type to store it with.
+ * Validates a selected file against the storage allow-list using the real file
+ * content, then returns the canonical type to store it with.
+ *
+ * A file is never rejected only because the browser reported a missing or
+ * unusual MIME type: the file content decides. When the content cannot be
+ * identified at all, the file extension is used, and the storage bucket still
+ * enforces its own allow-list server side.
  */
 export async function resolveUpload(file: File): Promise<ResolvedUpload> {
   const name = file.name || "file";
@@ -220,46 +269,82 @@ export async function resolveUpload(file: File): Promise<ResolvedUpload> {
   const fromExtension = EXTENSION_TO_MIME[extension] ?? null;
   const reported = (file.type || "").toLowerCase().split(";")[0].trim();
 
-  const header = new Uint8Array(await file.slice(0, 64).arrayBuffer());
+  const header = new Uint8Array(await file.slice(0, 256).arrayBuffer());
   const sniffed = sniffMimeType(header);
 
-  if (!sniffed) {
+  // 1. Content identified: the file content is authoritative.
+  if (sniffed) {
+    const sniffedKind = kindForMimeType(sniffed);
+    if (!sniffedKind) {
+      throw new MediaValidationError(
+        `"${name}" has an unsupported file type (${sniffed}). Allowed types: ${ALLOWED_UPLOAD_TYPES.join(", ")}.`
+      );
+    }
     if (fromExtension) {
-      throw new MediaValidationError(
-        `"${name}" is not a valid ${describe(
-          kindForMimeType(fromExtension) ?? "image"
-        )}. The file content does not match its .${extension} extension.`
-      );
+      const extensionKind = kindForMimeType(fromExtension);
+      if (extensionKind && familyOf(extensionKind) !== familyOf(sniffedKind)) {
+        throw new MediaValidationError(
+          `"${name}" is a ${describe(sniffedKind)} but has a .${extension} extension. Rename the file to match its real content or pick a different file.`
+        );
+      }
     }
-    throw new MediaValidationError(
-      `"${name}" is not a supported file. Allowed types: ${ALLOWED_UPLOAD_TYPES.join(", ")}.`
-    );
+    const reportedKind = kindForMimeType(reported);
+    return {
+      kind: sniffedKind,
+      contentType: sniffed,
+      extension: MIME_TO_EXTENSION[sniffed] ?? extension,
+      browserTypeMismatch: Boolean(reportedKind) && reportedKind !== sniffedKind,
+      contentVerified: true,
+    };
   }
 
-  const sniffedKind = kindForMimeType(sniffed);
-  if (!sniffedKind) {
-    throw new MediaValidationError(
-      `"${name}" has an unsupported file type (${sniffed}). Allowed types: ${ALLOWED_UPLOAD_TYPES.join(", ")}.`
-    );
-  }
-
+  // 2. Content not recognised: fall back to the extension. A missing or unusual
+  //    browser MIME type must not be the reason a legitimate file is rejected.
   if (fromExtension) {
-    const extensionKind = kindForMimeType(fromExtension);
-    if (extensionKind && familyOf(extensionKind) !== familyOf(sniffedKind)) {
-      throw new MediaValidationError(
-        `"${name}" is a ${describe(sniffedKind)} but has a .${extension} extension. Rename the file to match its real content or pick a different file.`
-      );
-    }
+    const kind = kindForMimeType(fromExtension)!;
+    return {
+      kind,
+      contentType: fromExtension,
+      extension: MIME_TO_EXTENSION[fromExtension] ?? extension,
+      browserTypeMismatch: false,
+      contentVerified: false,
+    };
   }
 
-  const browserTypeMismatch = Boolean(reported) && kindForMimeType(reported) !== null && kindForMimeType(reported) !== sniffedKind;
+  throw new MediaValidationError(
+    `"${name}" is not a supported file. Allowed types: ${ALLOWED_UPLOAD_TYPES.join(", ")}.`
+  );
+}
 
-  return {
-    kind: sniffedKind,
-    contentType: sniffed,
-    extension: MIME_TO_EXTENSION[sniffed] ?? extension,
-    browserTypeMismatch,
-  };
+/** Video formats that browsers can play back directly. */
+const BROWSER_PLAYABLE_VIDEO_TYPES = ["video/mp4", "video/webm", "video/ogg"];
+/** Formats that only play when the codec is H.264/AAC (Safari, iOS, Chrome). */
+const CONDITIONAL_VIDEO_TYPES = ["video/quicktime", "video/x-m4v"];
+
+export function isBrowserPlayableVideo(contentType: string): boolean {
+  return BROWSER_PLAYABLE_VIDEO_TYPES.includes(contentType);
+}
+
+export function isConditionallyPlayableVideo(contentType: string): boolean {
+  return CONDITIONAL_VIDEO_TYPES.includes(contentType);
+}
+
+/** Human readable playback compatibility note for the admin interface. */
+export function videoCompatibilityNote(contentType: string): string | null {
+  if (isBrowserPlayableVideo(contentType)) return null;
+  if (isConditionallyPlayableVideo(contentType)) {
+    return "Plays in Safari, Chrome and iOS when the file is encoded as H.264/AAC.";
+  }
+  return "This format cannot be played by most browsers. Upload an MP4 (H.264) or WebM version for the website gallery.";
+}
+
+/** Video type inferred from a stored URL (used by the public gallery). */
+export function videoTypeFromUrl(url: string): string | null {
+  if (!url) return null;
+  const lower = url.toLowerCase();
+  const match = lower.match(/\.([a-z0-9]{2,5})(?:\?.*)?$/);
+  if (!match) return null;
+  return EXTENSION_TO_MIME[match[1]] ?? null;
 }
 
 export function formatFileSize(bytes: number): string {
@@ -268,10 +353,19 @@ export function formatFileSize(bytes: number): string {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-/** Maximum accepted size per kind. Must match the storage bucket file_size_limit (100MB). */
+/**
+ * Maximum accepted size per kind.
+ *
+ * The video limit matches the storage bucket's file_size_limit. The platform
+ * rejects a bucket limit above 50 MB with "413 Payload too large", so 50 MB is
+ * the largest per-file video the current project plan supports.
+ */
 export function maxUploadBytes(kind: MediaUploadKind): number {
-  return kind === "video" ? 100 * 1024 * 1024 : 5 * 1024 * 1024;
+  return kind === "video" ? 50 * 1024 * 1024 : 5 * 1024 * 1024;
 }
+
+/** Files at or above this size are uploaded with the resumable protocol. */
+export const RESUMABLE_UPLOAD_THRESHOLD = 4 * 1024 * 1024;
 
 /** Human readable reason for a failed storage upload. */
 export function storageErrorMessage(message: string, contentType?: string): string {
@@ -290,6 +384,9 @@ export function storageErrorMessage(message: string, contentType?: string): stri
   }
   if (m.includes("network") || m.includes("failed to fetch") || m.includes("timeout")) {
     return "Network error while uploading. Check your connection and try again.";
+  }
+  if (m.includes("already exists") || m.includes("duplicate")) {
+    return "A file with that name already exists. Rename the file and try again.";
   }
   if (m.includes("not found") || m.includes("404")) {
     return "The media bucket could not be found. Check the storage configuration.";

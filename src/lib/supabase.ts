@@ -20,6 +20,12 @@ function normalizeSupabaseUrl(value: string | undefined): string | undefined {
 
 const projectUrl = normalizeSupabaseUrl(url);
 
+/** Base URL of the project, used for direct storage API calls (uploads). */
+export const supabaseProjectUrl = projectUrl;
+
+/** The public anon/publishable key. It is safe to ship to the browser. */
+export const supabaseAnonKey = anonKey;
+
 /** Only absolute http(s) URLs are usable. `createClient` throws for anything else,
  * and it used to throw during module evaluation, which crashed the whole app
  * before React could mount. */

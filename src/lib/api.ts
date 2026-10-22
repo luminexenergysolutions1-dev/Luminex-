@@ -1,11 +1,13 @@
 import { isVideoUrl, isImageUrl } from "@/utils/media";
 import {
   MediaValidationError,
+  RESUMABLE_UPLOAD_THRESHOLD,
   formatFileSize,
   maxUploadBytes,
   resolveUpload,
   storageErrorMessage,
 } from "@/utils/media";
+import { supabaseAnonKey, supabaseProjectUrl } from "./supabase";
 import { defaultSiteData } from "./defaults";
 import { requireSupabase, supabase } from "./supabase";
 import type {
@@ -139,13 +141,11 @@ export async function uploadQuoteAttachment(file: File) {
   if (file.size > 5 * 1024 * 1024) {
     throw new MediaValidationError(`Attachment must be under 5MB (this file is ${formatFileSize(file.size)}).`);
   }
-  const path = `quotes/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
-  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file, {
-    cacheControl: "31536000",
-    contentType: resolved.contentType,
-  });
-  if (error) throw new Error(storageErrorMessage(error.message, resolved.contentType));
-  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
+  const auth = await storageAuth(false);
+  const name = safeFileName(file.name, resolved.extension);
+  const path = `quotes/${name}`;
+  await directUpload(file, path, resolved.contentType, auth);
+  return `${auth.base}/storage/v1/object/public/media/${path}`;
 }
 
 export async function fetchQuotes(): Promise<QuoteRequest[]> {
@@ -166,6 +166,203 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus) {
 
 /* ---------------- Media ---------------- */
 
+export interface UploadProgress {
+  loaded: number;
+  total: number;
+  percent: number;
+}
+
+export interface UploadOptions {
+  onProgress?: (progress: UploadProgress) => void;
+  signal?: AbortSignal;
+}
+
+const UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024;
+const UPLOAD_CHUNK_RETRIES = 3;
+
+/** Builds a storage safe file name: no path separators, no traversal. */
+function safeFileName(name: string, extension: string): string {
+  const base = (name.replace(/\.[^.]+$/, "") || "file")
+    .replace(/[^a-zA-Z0-9._-]/g, "_")
+    .replace(/^\.+/, "")
+    .slice(0, 60);
+  return `${Date.now()}-${base || "file"}.${extension}`;
+}
+
+async function storageAuth(requireSession = true): Promise<{ base: string; apikey: string; token: string }> {
+  const sb = requireSupabase();
+  const base = supabaseProjectUrl;
+  if (!base || !supabaseAnonKey) {
+    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
+  }
+  const { data } = await sb.auth.getSession();
+  const token = data.session?.access_token;
+  if (!token) {
+    if (requireSession) {
+      throw new Error("You must be signed in as an administrator to upload files.");
+    }
+    // Anonymous visitors may attach a document to a quote request.
+    return { base, apikey: supabaseAnonKey, token: supabaseAnonKey };
+  }
+  return { base, apikey: supabaseAnonKey, token };
+}
+
+/** Single request upload with byte level progress reporting. */
+async function directUpload(
+  file: File,
+  path: string,
+  contentType: string,
+  auth: { base: string; apikey: string; token: string },
+  options?: UploadOptions
+): Promise<void> {
+  const url = `${auth.base}/storage/v1/object/media/${path}`;
+  await new Promise<void>((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url, true);
+    xhr.setRequestHeader("apikey", auth.apikey);
+    xhr.setRequestHeader("Authorization", `Bearer ${auth.token}`);
+    xhr.setRequestHeader("Content-Type", contentType);
+    xhr.setRequestHeader("Cache-Control", "31536000");
+    xhr.setRequestHeader("x-upsert", "false");
+    xhr.upload.onprogress = (e) => {
+      if (options?.onProgress && e.lengthComputable) {
+        options.onProgress({ loaded: e.loaded, total: e.total, percent: Math.round((e.loaded / e.total) * 100) });
+      }
+    };
+    xhr.onload = () => {
+      if (xhr.status >= 200 && xhr.status < 300) return resolve();
+      let message = xhr.responseText || `Upload failed (HTTP ${xhr.status}).`;
+      try {
+        const parsed = JSON.parse(xhr.responseText);
+        if (parsed?.message) message = parsed.message;
+      } catch {
+        /* keep the raw text */
+      }
+      reject(new Error(message));
+    };
+    xhr.onerror = () => reject(new Error("Network error while uploading. Check your connection and try again."));
+    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
+    const onAbort = () => xhr.abort();
+    options?.signal?.addEventListener("abort", onAbort, { once: true });
+    xhr.onloadend = () => options?.signal?.removeEventListener("abort", onAbort);
+    xhr.send(file);
+  });
+}
+
+/**
+ * Resumable upload using the storage provider's TUS endpoint.
+ * The file is sent in chunks so an interrupted connection only restarts the
+ * current chunk instead of the whole file.
+ */
+async function resumableUpload(
+  file: File,
+  path: string,
+  contentType: string,
+  auth: { base: string; apikey: string; token: string },
+  options?: UploadOptions
+): Promise<void> {
+  const meta = (name: string, value: string) => `${name} ${btoa(unescape(encodeURIComponent(value)))}`;
+  const metadata = [
+    meta("bucketName", "media"),
+    meta("objectName", path),
+    meta("contentType", contentType),
+    meta("cacheControl", "31536000"),
+  ].join(",");
+
+  const create = await fetch(`${auth.base}/storage/v1/upload/resumable`, {
+    method: "POST",
+    headers: {
+      apikey: auth.apikey,
+      Authorization: `Bearer ${auth.token}`,
+      "Tus-Resumable": "1.0.0",
+      "Upload-Length": String(file.size),
+      "Upload-Metadata": metadata,
+      "x-upsert": "false",
+    },
+    signal: options?.signal,
+  });
+  if (!create.ok) {
+    const text = await create.text();
+    let message = text || `Upload could not be started (HTTP ${create.status}).`;
+    try {
+      const parsed = JSON.parse(text);
+      if (parsed?.message) message = parsed.message;
+    } catch {
+      /* keep raw text */
+    }
+    throw new Error(message);
+  }
+  const location = create.headers.get("location");
+  if (!location) throw new Error("The storage service did not return an upload session.");
+  const uploadUrl = location.startsWith("http") ? location : `${auth.base}${location}`;
+
+  let offset = 0;
+  while (offset < file.size) {
+    const end = Math.min(offset + UPLOAD_CHUNK_SIZE, file.size);
+    const chunk = file.slice(offset, end);
+    let lastError: unknown = null;
+    for (let attempt = 1; attempt <= UPLOAD_CHUNK_RETRIES; attempt++) {
+      try {
+        const res = await fetch(uploadUrl, {
+          method: "PATCH",
+          headers: {
+            apikey: auth.apikey,
+            Authorization: `Bearer ${auth.token}`,
+            "Tus-Resumable": "1.0.0",
+            "Content-Type": "application/offset+octet-stream",
+            "Upload-Offset": String(offset),
+          },
+          body: chunk,
+          signal: options?.signal,
+        });
+        if (res.status === 204 || res.status === 200) {
+          lastError = null;
+          break;
+        }
+        const text = await res.text();
+        lastError = new Error(text || `Chunk upload failed (HTTP ${res.status}).`);
+        if (res.status < 500 && res.status !== 429) break;
+      } catch (e) {
+        lastError = e;
+      }
+      if (attempt < UPLOAD_CHUNK_RETRIES) {
+        await new Promise((r) => setTimeout(r, 1000 * attempt));
+      }
+    }
+    if (lastError) {
+      throw new Error(
+        `Upload interrupted at ${Math.round((offset / file.size) * 100)}%: ${
+          lastError instanceof Error ? lastError.message : String(lastError)
+        }`
+      );
+    }
+    offset = end;
+    options?.onProgress?.({ loaded: offset, total: file.size, percent: Math.round((offset / file.size) * 100) });
+  }
+
+  // The last chunk already finalises the object; the explicit call is kept for
+  // storage versions that need it. A 409 means "already stored", which is fine.
+  try {
+    const finish = await fetch(uploadUrl, {
+      method: "POST",
+      headers: {
+        apikey: auth.apikey,
+        Authorization: `Bearer ${auth.token}`,
+        "Tus-Resumable": "1.0.0",
+        "Upload-Length": "0",
+        "Upload-Metadata": metadata,
+      },
+      signal: options?.signal,
+    });
+    if (!finish.ok && finish.status !== 409) {
+      const text = await finish.text();
+      throw new Error(text || `Upload could not be completed (HTTP ${finish.status}).`);
+    }
+  } catch (e) {
+    if (e instanceof Error && !/already exists/i.test(e.message)) throw e;
+  }
+}
+
 export async function listMedia(): Promise<MediaItem[]> {
   const sb = requireSupabase();
   const { data, error } = await sb.storage
@@ -185,8 +382,8 @@ export async function listMedia(): Promise<MediaItem[]> {
     });
 }
 
-export async function uploadMedia(file: File): Promise<MediaItem> {
-  const sb = requireSupabase();
+export async function uploadMedia(file: File, options?: UploadOptions): Promise<MediaItem> {
+  const auth = await storageAuth();
   // The browser supplied MIME type is not trusted: the file is identified by its
   // magic bytes and the canonical type is stored with the object.
   const resolved = await resolveUpload(file);
@@ -194,21 +391,26 @@ export async function uploadMedia(file: File): Promise<MediaItem> {
   if (file.size > maxBytes) {
     throw new MediaValidationError(
       resolved.kind === "video"
-        ? `Video must be under 100MB (this file is ${formatFileSize(file.size)}).`
+        ? `Video must be under 50MB (this file is ${formatFileSize(file.size)}).`
         : `${resolved.kind === "pdf" ? "PDF" : "Image"} must be under 5MB (this file is ${formatFileSize(file.size)}).`
     );
   }
-  const base = (file.name.replace(/\.[^.]+$/, "") || "file").replace(/[^a-zA-Z0-9._-]/g, "_");
-  const name = `${Date.now()}-${base}.${resolved.extension}`;
-  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(`uploads/${name}`, file, {
-    cacheControl: "31536000",
-    contentType: resolved.contentType,
-  });
-  if (error) throw new Error(storageErrorMessage(error.message, resolved.contentType));
+  const name = safeFileName(file.name, resolved.extension);
+  const path = `uploads/${name}`;
+  try {
+    if (file.size >= RESUMABLE_UPLOAD_THRESHOLD) {
+      await resumableUpload(file, path, resolved.contentType, auth, options);
+    } else {
+      await directUpload(file, path, resolved.contentType, auth, options);
+    }
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") throw e;
+    throw new Error(storageErrorMessage(e instanceof Error ? e.message : String(e), resolved.contentType));
+  }
   return {
     name,
     mime_type: resolved.contentType,
-    url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${name}`).data.publicUrl,
+    url: `${auth.base}/storage/v1/object/public/media/${path}`,
   };
 }
 

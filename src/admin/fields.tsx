@@ -2,7 +2,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { listMedia, uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/lib/types";
 import { isVideoUrl, isImageUrl } from "@/utils/media";
-import { UPLOAD_ACCEPT_ATTRIBUTE } from "@/utils/media";
+import { UPLOAD_ACCEPT_ATTRIBUTE, formatFileSize, videoCompatibilityNote, videoTypeFromUrl } from "@/utils/media";
 import { cn } from "@/utils/cn";
 
 export { isVideoUrl, isImageUrl };
@@ -99,9 +99,13 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
+  const [note, setNote] = useState("");
+  const [progress, setProgress] = useState(0);
   const [previewSrc, setPreviewSrc] = useState("");
   const [previewName, setPreviewName] = useState("");
   const video = isVideoUrl(value);
+  const currentVideoType = videoTypeFromUrl(value);
+  const compat = currentVideoType ? videoCompatibilityNote(currentVideoType) : null;
 
   const load = async () => {
     try {
@@ -121,11 +125,16 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
     if (!f) return;
     setBusy(true);
     setErr("");
+    setNote("");
     setPreviewSrc(URL.createObjectURL(f));
     setPreviewName(f.name);
+    setProgress(0);
     try {
-      const m = await uploadMedia(f);
+      const m = await uploadMedia(f, {
+        onProgress: (p) => setProgress(p.percent),
+      });
       onChange(m.url);
+      setNote(`${f.name} uploaded (${formatFileSize(f.size)}).`);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
@@ -167,8 +176,15 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
             </button>
           </div>
           <p className="text-xs text-charcoal/50">
-            Images up to 5MB · videos (MP4, WebM, MOV, MPEG, AVI) up to 100MB · PDF up to 5MB. Every file is checked by its real content, not only by its name.
+            Images up to 5MB · videos (MP4, M4V, MOV, WebM, MKV, AVI, MPEG, 3GP, WMV, FLV) up to 50MB · PDF up to 5MB. Files are checked by content, not just by name, and large videos upload in resumable chunks.
           </p>
+          {busy && (
+            <div className="h-1.5 w-full rounded-full bg-soft overflow-hidden">
+              <div className="h-full bg-energy transition-all" style={{ width: `${progress}%` }} />
+            </div>
+          )}
+          {note && <p className="text-xs text-green-700">{note}</p>}
+          {compat && <p className="text-xs text-amber-700">{compat}</p>}
           {err && <p className="text-xs text-red-600">{err}</p>}
         </div>
       </div>

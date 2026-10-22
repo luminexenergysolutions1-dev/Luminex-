@@ -4,7 +4,7 @@ import { QUOTE_STATUSES } from "@/lib/defaults";
 import type { MediaItem, QuoteRequest, QuoteStatus } from "@/lib/types";
 import { AdminPageTitle } from "../AdminLayout";
 import { inputCls, isVideoUrl, isImageUrl } from "../fields";
-import { UPLOAD_ACCEPT_ATTRIBUTE } from "@/utils/media";
+import { UPLOAD_ACCEPT_ATTRIBUTE, formatFileSize } from "@/utils/media";
 import { cn } from "@/utils/cn";
 
 const statusColor: Record<QuoteStatus, string> = {
@@ -135,6 +135,8 @@ export function MediaAdmin() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState("");
+  const [progress, setProgress] = useState<{ name: string; percent: number; loaded: number; total: number } | null>(null);
+  const [done, setDone] = useState("");
 
   const load = () => listMedia().then(setItems).catch((e) => setErr(e.message));
   useEffect(() => {
@@ -145,21 +147,28 @@ export function MediaAdmin() {
     if (!files) return;
     setBusy(true);
     setErr("");
+    setDone("");
     const failures: string[] = [];
     let uploaded = 0;
     for (const f of Array.from(files)) {
+      setProgress({ name: f.name, percent: 0, loaded: 0, total: f.size });
       try {
-        await uploadMedia(f);
+        await uploadMedia(f, {
+          onProgress: (p) => setProgress({ name: f.name, percent: p.percent, loaded: p.loaded, total: p.total }),
+        });
         uploaded += 1;
       } catch (e) {
         failures.push(`${f.name}: ${(e as Error).message}`);
       }
     }
+    setProgress(null);
     await load();
     if (failures.length) {
       setErr(
         `${uploaded} file${uploaded === 1 ? "" : "s"} uploaded. ${failures.length} failed — ${failures.join(" | ")}`
       );
+    } else if (uploaded) {
+      setDone(`${uploaded} file${uploaded === 1 ? "" : "s"} uploaded successfully.`);
     }
     setBusy(false);
   };
@@ -180,14 +189,28 @@ export function MediaAdmin() {
     <>
       <AdminPageTitle
         title="Media Library"
-        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted formats: images (JPG, PNG, GIF, WebP, AVIF) and videos (MP4, WebM, MOV, MPEG, AVI) plus PDF for documents. Every file is validated by its real content, not only by its extension. Max 5MB images and PDFs, 100MB videos."
+        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted formats: images (JPG, PNG, GIF, WebP, AVIF), videos (MP4, M4V, MOV, WebM, MKV, AVI, MPEG/MPG, 3GP, WMV, FLV) and PDF documents. Every file is validated by its real content, not only by its extension. Large files are uploaded in resumable chunks. Max 5MB for images and PDF, 50MB for videos (the storage plan limit)."
         actions={
           <label className="min-h-[44px] inline-flex items-center rounded-lg bg-charcoal px-4 text-sm font-semibold text-white cursor-pointer">
             {busy ? "Uploading…" : "Upload images or videos"}
-            <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} multiple className="sr-only" onChange={(e) => upload(e.target.files)} />
+            <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} multiple className="sr-only" disabled={busy} onChange={(e) => upload(e.target.files)} />
           </label>
         }
       />
+      {progress && (
+        <div className="mb-3 rounded-xl bg-white ring-1 ring-charcoal/6 p-3">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold truncate">{progress.name}</span>
+            <span className="text-charcoal/60">
+              {progress.percent}% · {formatFileSize(progress.loaded)} / {formatFileSize(progress.total)}
+            </span>
+          </div>
+          <div className="mt-2 h-2 rounded-full bg-soft overflow-hidden">
+            <div className="h-full bg-energy transition-all" style={{ width: `${progress.percent}%` }} />
+          </div>
+        </div>
+      )}
+      {done && <p className="text-sm text-green-700 mb-3">{done}</p>}
       {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
       {items.length === 0 ? (
         <div className="rounded-2xl bg-white ring-1 ring-charcoal/6 p-10 text-center text-sm text-charcoal/50">No images or videos uploaded yet.</div>

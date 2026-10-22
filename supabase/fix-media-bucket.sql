@@ -21,13 +21,18 @@ set allowed_mime_types = array[
     'image/webp',
     'image/avif',
     'video/mp4',
-    'video/webm',
+    'video/x-m4v',
     'video/quicktime',
-    'video/mpeg',
+    'video/webm',
+    'video/x-matroska',
     'video/x-msvideo',
+    'video/mpeg',
+    'video/3gpp',
+    'video/x-ms-wmv',
+    'video/x-flv',
     'application/pdf'
   ],
-  file_size_limit = 104857600, -- 100 MB, matches the admin upload limit
+  file_size_limit = 52428800, -- 50 MB: the maximum the platform accepts for this bucket
   public = true
 where id = 'media';
 
