@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useSite } from "@/context/SiteContext";
 import { Button, Container, Reveal, SectionHeading } from "@/components/ui";
@@ -29,6 +30,8 @@ export default function Home() {
   const { homepage: h } = data;
   const services = data.services.filter((s) => s.published).sort((a, b) => a.sort_order - b.sort_order);
   const projects = data.projects.filter((p) => p.published).slice(0, 3);
+  const [showAllServices, setShowAllServices] = useState(false);
+  const visibleServices = showAllServices ? services : services.slice(0, 3);
 
   return (
     <>
@@ -143,12 +146,24 @@ export default function Home() {
             </Link>
           </Reveal>
           <div className="mt-12 grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
-            {services.map((s, i) => (
+            {visibleServices.map((s, i) => (
               <Reveal key={s.id} delay={i * 80}>
                 <ServiceCard service={s} index={i} />
               </Reveal>
             ))}
           </div>
+          {services.length > 3 && (
+            <div className="mt-10 flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowAllServices((v) => !v)}
+                aria-expanded={showAllServices}
+                className="inline-flex items-center gap-2 font-semibold text-energy min-h-[44px] hover:underline"
+              >
+                {showAllServices ? "View Less" : "View More"}
+              </button>
+            </div>
+          )}
           <Reveal className="mt-14">
             <SolutionFinder />
           </Reveal>

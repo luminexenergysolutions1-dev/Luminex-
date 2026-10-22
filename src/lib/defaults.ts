@@ -192,20 +192,26 @@ export const defaultServices: Service[] = [
   ),
   svc(
     {
-      id: "utility-solar",
-      slug: "utility-solar",
-      title: "Utility-Scale Solar",
+      id: "utility-scale-solar-pv",
+      slug: "utility-scale-solar-pv",
+      title: "Utility-Scale Solar PV Design",
       icon: "sun",
-      image: "/images/utility-solar.jpg",
-      cta_text: "Explore Utility Solar",
+      image: "/images/utility-solar.svg",
+      cta_text: "Explore Utility-Scale Solar PV Design",
       short_description:
-        "Large-scale solar power systems designed for commercial and industrial properties, farms, and institutional facilities.",
+        "Utility-scale solar PV design and engineering for commercial and industrial properties, farms and institutional facilities — from feasibility and site assessment through layout, grid interconnection and commissioning.",
       overview:
-        "Ghana's commercial and industrial sectors have significant solar potential. Luminex designs utility-scale systems that maximize rooftop and ground-space efficiency — delivering predictable revenue-grade power and substantial bill reductions.",
+        "Ghana's commercial and industrial sectors have significant solar potential. Luminex designs utility-scale photovoltaic systems that maximize rooftop and ground-space efficiency — combining detailed PV layout, electrical single-line design and performance forecasting so the system is sized exactly to the site, the load and the business plan, before a single panel is ordered.",
       provides: [
         "Large-scale solar system design and engineering",
         "Ground-mounted and rooftop solar installations",
+        "Site survey, solar resource and shade analysis",
+        "Performance modelling and system forecasting",
+        "PV layout and electrical single-line diagrams",
+        "System sizing and panel, inverter and battery selection",
+        "Roof or ground mount design and structural analysis",
         "Grid interconnection and net-metering setup",
+        "Interconnection application support",
         "Battery storage integration for peak-shaving",
         "Energy monitoring and performance analytics",
         "Operations and maintenance contracts",
@@ -213,6 +219,11 @@ export const defaultServices: Service[] = [
       benefits: [
         "Significant reduction in commercial electricity costs",
         "Predictable, 20+ year energy revenue stream",
+        "Avoid costly over- or under-sizing of your system",
+        "Maximum energy production per dollar invested",
+        "Clear understanding of expected ROI and payback period",
+        "Reduced risk of design-change orders during construction",
+        "Optimized system for your specific climate and usage patterns",
         "Carbon footprint reduction and ESG compliance",
         "Energy independence from grid volatility",
         "Quick ROI with accelerated depreciation incentives",
@@ -223,66 +234,27 @@ export const defaultServices: Service[] = [
         "Agricultural farms and irrigation systems",
         "Government and institutional facilities",
         "Mixed-use developments",
-      ],
-      process: [
-        "Feasibility study and solar potential assessment",
-        "System design and load analysis",
-        "Permitting and grid interconnection approval",
-        "Procurement and equipment supply",
-        "Professional installation and commissioning",
-        "Training and handover, ongoing O&M support",
-      ],
-      why_luminex:
-        "Because we combine deep technical expertise with commercial acumen — we design systems that perform as promised and deliver the ROI our commercial clients need.",
-    },
-    4
-  ),
-  svc(
-    {
-      id: "pv-design",
-      slug: "pv-design",
-      title: "PV Design",
-      icon: "sun",
-      image: "/images/pv-design.jpg",
-      cta_text: "Request PV Design",
-      short_description:
-        "Custom solar photovoltaic system design optimized for your specific site conditions, energy goals, and budget.",
-      overview:
-        "Not all solar systems are created equal. Luminex's PV Design service provides detailed system modeling, shade analysis, and performance forecasting before a single panel is ordered — ensuring your system is sized exactly to your needs.",
-      provides: [
-        "Site survey and solar resource assessment",
-        " shade analysis and performance modeling",
-        "System sizing and electrical single-line diagram",
-        "Panel, inverter, and battery selection optimized to your goals",
-        "Roof or ground mount design and structural analysis",
-        "Interconnection application support",
-      ],
-      benefits: [
-        "Avoid costly over- or under-sizing of your system",
-        "Maximum energy production per dollar invested",
-        "Clear understanding of expected ROI and payback period",
-        "Reduced risk of design-change orders during construction",
-        "Optimized system for your specific climate and usage patterns",
-      ],
-      applications: [
         "Residential homes with complex roof geometries",
-        "Small commercial buildings",
-        "Properties with shading obstacles",
+        "Small commercial buildings and properties with shading obstacles",
         "Systems where every square foot counts",
         "Retrofits and expansions of existing systems",
       ],
       process: [
         "Initial consultation and energy usage review",
-        "Detailed site survey and measurement",
-        "3D shading analysis and performance simulation",
-        "Custom system design and electrical layout",
-        "Quotation and financing options",
-        "Design review and approval",
+        "Feasibility study and solar potential assessment",
+        "Detailed site survey, measurement and shade analysis",
+        "Custom system design, load analysis and electrical layout",
+        "Performance simulation and system sizing",
+        "Permitting and grid interconnection approval",
+        "Procurement and equipment supply",
+        "Professional installation and commissioning",
+        "Design review, quotation and financing options",
+        "Training and handover, ongoing O&M support",
       ],
       why_luminex:
-        "Because we believe a well-designed system is the foundation of every successful solar project — we obsess over the details so our clients get it right the first time.",
+        "Because we combine deep technical expertise with commercial acumen — a well-designed system is the foundation of every successful solar project, so we design systems that perform as promised and deliver the ROI our clients need.",
     },
-    5
+    4
   ),
   svc(
     {
@@ -290,7 +262,7 @@ export const defaultServices: Service[] = [
       slug: "consultancy-solar-pv",
       title: "Consultancy for Solar PV Projects",
       icon: "sun",
-      image: "/images/consultancy.jpg",
+      image: "/images/consultancy.svg",
       cta_text: "Schedule Consultation",
       short_description:
         "Expert guidance to help you define, plan, and execute a solar PV project that meets your energy and financial objectives.",
@@ -331,7 +303,7 @@ export const defaultServices: Service[] = [
       why_luminex:
         "Because solar projects are significant investments — we're here to ensure you make informed decisions every step of the way.",
     },
-    6
+    5
   ),
 ];
 
@@ -354,7 +326,7 @@ export const defaultSiteData: SiteData = {
       "Luminex Energy Solutions is an officially registered business in Ghana, established in September 2026.\n\nWe are a modern provider of reliable power, safe electrical infrastructure and premium air conditioning.\n\nWe deliver high-tech, affordable and energy-efficient solutions designed to keep homes, businesses and other spaces reliably powered and comfortably cooled.",
     about_image: "/images/about.jpg",
     about_cta: "Learn More About Luminex",
-    services_title: "One team for solar power, electricity and indoor cooling.",
+    services_title: "One team for solar power, electricity and indoor cooling",
     services_intro: "Four connected services, delivered by one accountable team — from the solar on your roof to the cool air in your room.",
     advantages_title: "Why Choose Luminex?",
     advantages: [
@@ -504,6 +476,8 @@ export const SERVICE_OPTIONS = [
   "Electrical Works",
   "Air Conditioning",
   "Energy Savings",
+  "Utility-Scale Solar PV Design",
+  "Consultancy for Solar PV Projects",
   "Other",
 ];
 export const PROPERTY_TYPES = [
