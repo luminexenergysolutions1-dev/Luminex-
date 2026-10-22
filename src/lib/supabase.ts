@@ -10,6 +10,16 @@ function readEnv(name: string): string | undefined {
 const url = readEnv("VITE_SUPABASE_URL");
 const anonKey = readEnv("VITE_SUPABASE_ANON_KEY");
 
+/** The Supabase client expects the project base URL (https://<ref>.supabase.co).
+ * A REST base URL (https://<ref>.supabase.co/rest/v1/) is also accepted in the
+ * dashboard's "Data API" copy block, so strip it before building the client. */
+function normalizeSupabaseUrl(value: string | undefined): string | undefined {
+  if (value === undefined) return undefined;
+  return value.replace(/\/rest\/v1\/?$/, "").replace(/\/+$/, "");
+}
+
+const projectUrl = normalizeSupabaseUrl(url);
+
 /** Only absolute http(s) URLs are usable. `createClient` throws for anything else,
  * and it used to throw during module evaluation, which crashed the whole app
  * before React could mount. */
@@ -24,14 +34,14 @@ function isValidSupabaseUrl(value: string | undefined): value is string {
 }
 
 export const isSupabaseConfigured = Boolean(
-  url !== undefined && anonKey !== undefined && isValidSupabaseUrl(url)
+  projectUrl !== undefined && anonKey !== undefined && isValidSupabaseUrl(projectUrl)
 );
 
 function createSupabaseClient(): SupabaseClient | null {
-  if (url === undefined || anonKey === undefined || !isValidSupabaseUrl(url)) {
+  if (projectUrl === undefined || anonKey === undefined || !isValidSupabaseUrl(projectUrl)) {
     return null;
   }
-  const validUrl: string = url;
+  const validUrl: string = projectUrl;
   const validKey: string = anonKey;
   try {
     return createClient(validUrl, validKey);

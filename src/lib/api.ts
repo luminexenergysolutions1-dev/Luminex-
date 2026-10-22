@@ -1,5 +1,6 @@
 import { isVideoUrl, isImageUrl } from "@/utils/media";
 import { defaultSiteData } from "./defaults";
+import { requireSupabase, supabase } from "./supabase";
 import type {
   Faq,
   MediaItem,
