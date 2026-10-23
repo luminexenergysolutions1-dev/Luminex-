@@ -1,11 +1,8 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { listMedia, uploadMedia } from "@/lib/api";
 import type { MediaItem } from "@/lib/types";
-import { isVideoUrl, isImageUrl } from "@/utils/media";
-import { UPLOAD_ACCEPT_ATTRIBUTE, formatFileSize, videoCompatibilityNote, videoTypeFromUrl } from "@/utils/media";
 import { cn } from "@/utils/cn";
-
-export { isVideoUrl, isImageUrl };
+import { formatFileSize, isVideoUrl, videoCompatibilityNote, videoTypeFromUrl, validateFile } from "@/utils/media";
 
 export const inputCls =
   "w-full rounded-lg border border-charcoal/12 bg-white px-3.5 min-h-[44px] text-sm text-charcoal focus:border-energy focus:ring-2 focus:ring-energy/20 outline-none";
@@ -93,19 +90,13 @@ export function Toggle({ checked, onChange, label }: { checked: boolean; onChang
   );
 }
 
-/** Image/video picker: URL input + upload + choose from media library. Supports video files. */
+/** Media picker: URL input + upload + choose from media library. Supports images and videos. */
 export function ImageInput({ value, onChange, label }: { value: string; onChange: (v: string) => void; label: string }) {
   const [open, setOpen] = useState(false);
   const [items, setItems] = useState<MediaItem[]>([]);
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
-  const [note, setNote] = useState("");
-  const [progress, setProgress] = useState(0);
-  const [previewSrc, setPreviewSrc] = useState("");
-  const [previewName, setPreviewName] = useState("");
-  const video = isVideoUrl(value);
-  const currentVideoType = videoTypeFromUrl(value);
-  const compat = currentVideoType ? videoCompatibilityNote(currentVideoType) : null;
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
 
   const load = async () => {
     try {
@@ -115,87 +106,95 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
     }
   };
 
-  useEffect(() => {
-    return () => {
-      if (previewSrc) URL.revokeObjectURL(previewSrc);
-    };
-  }, [previewSrc]);
-
   const onUpload = async (f: File | undefined) => {
     if (!f) return;
     setBusy(true);
     setErr("");
-    setNote("");
-    setPreviewSrc(URL.createObjectURL(f));
-    setPreviewName(f.name);
-    setProgress(0);
+    setUploadProgress(0);
     try {
-      const m = await uploadMedia(f, {
-        onProgress: (p) => setProgress(p.percent),
-      });
+      // Validate file before upload
+      const validation = validateFile(f);
+      if (!validation.valid) {
+        throw new Error(validation.error || "Invalid file");
+      }
+
+      // Simulate progress for better UX
+      const progressInterval = setInterval(() => {
+        setUploadProgress((prev) => Math.min(prev + 10, 90));
+      }, 150);
+
+      const m = await uploadMedia(f);
+      clearInterval(progressInterval);
+      setUploadProgress(100);
       onChange(m.url);
-      setNote(`${f.name} uploaded (${formatFileSize(f.size)}).`);
     } catch (e) {
       setErr((e as Error).message);
     } finally {
       setBusy(false);
+      setTimeout(() => setUploadProgress(0), 1000);
     }
   };
+
+  const video = value ? isVideoUrl(value) : false;
+  const currentType = value ? videoTypeFromUrl(value) : null;
+  const compatNote = currentType ? videoCompatibilityNote(currentType) : null;
+  const isVideo = value ? isVideoUrl(value) : false;
 
   return (
     <div>
       <span className="block text-sm font-semibold text-charcoal mb-1.5">{label}</span>
       <div className="flex flex-col sm:flex-row gap-3">
         <div className="h-24 w-36 shrink-0 overflow-hidden rounded-lg bg-soft ring-1 ring-charcoal/10 relative">
-          {previewSrc ? (
-            isVideoUrl(previewName) ? (
-              <video src={previewSrc} className="h-full w-full object-cover" controls playsInline preload="metadata" />
-            ) : (
-              <img src={previewSrc} alt="" className="h-full w-full object-cover" />
-            )
-          ) : video ? (
-            <video src={value} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-          ) : (
-            value && <img src={value} alt="" className="h-full w-full object-cover" />
-          )}
-          {video && !previewSrc && (
-            <span className="absolute inset-0 grid place-items-center text-white pointer-events-none">
-              <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor" className="drop-shadow"><path d="M8 5v14l11-7z" /></svg>
-            </span>
+          {value && (
+            <>
+              {isVideo ? (
+                <video src={value} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+              ) : (
+                <img src={value} alt="" className="h-full w-full object-cover" />
+              )}
+              {video && (
+                <span className="absolute inset-0 grid place-items-center text-white pointer-events-none bg-charcoal/25">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M8 5v14l11-7z" />
+                  </svg>
+                </span>
+              )}
+            </>
           )}
         </div>
         <div className="flex-1 space-y-2">
-          <input className={inputCls} value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="Image URL or video URL" />
+          <input className={inputCls} value={value ?? ""} onChange={(e) => onChange(e.target.value)} placeholder="Image or video URL" />
           <div className="flex flex-wrap gap-2">
             <label className="inline-flex items-center min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold cursor-pointer hover:bg-ice">
               {busy ? "Uploading…" : video || value ? "Upload another" : "Upload image or video"}
-              <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} />
+              <input type="file" accept="image/*,video/*,application/pdf" className="sr-only" onChange={(e) => onUpload(e.target.files?.[0])} disabled={busy} />
             </label>
-            <button type="button" onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold hover:bg-ice">
+            <button type="button" onClick={() => { setOpen((o) => !o); if (!open) load(); }} className="min-h-[40px] px-3 rounded-lg bg-soft text-sm font-semibold hover:bg-ice" disabled={busy}>
               {open ? "Close library" : "Choose from library"}
             </button>
           </div>
           <p className="text-xs text-charcoal/50">
-            Images up to 5MB · videos (MP4, M4V, MOV, WebM, MKV, AVI, MPEG, 3GP, WMV, FLV) up to 50MB · PDF up to 5MB. Files are checked by content, not just by name, and large videos upload in resumable chunks.
+            Images up to 20MB · Videos up to 100MB (MP4, WebM, MOV, MKV, AVI, M4V, MPEG, 3GP, WMV, FLV, OGG) · PDF up to 20MB
           </p>
+          {compatNote && <p className="text-xs text-amber-600">⚠ {compatNote}</p>}
+          {err && <p className="text-xs text-red-600">{err}</p>}
           {busy && (
             <div className="h-1.5 w-full rounded-full bg-soft overflow-hidden">
-              <div className="h-full bg-energy transition-all" style={{ width: `${progress}%` }} />
+              <div className="h-full bg-energy transition-all" style={{ width: `${Math.min(uploadProgress, 100)}%` }} />
             </div>
           )}
-          {note && <p className="text-xs text-green-700">{note}</p>}
-          {compat && <p className="text-xs text-amber-700">{compat}</p>}
-          {err && <p className="text-xs text-red-600">{err}</p>}
         </div>
       </div>
       {open && (
         <div className="mt-3 grid grid-cols-3 sm:grid-cols-5 gap-2 max-h-56 overflow-y-auto rounded-lg border border-charcoal/10 p-2">
-          {items.length === 0 && <p className="col-span-full text-xs text-charcoal/50 p-2">No images or videos in the library yet.</p>}
+          {items.length === 0 && <p className="col-span-full text-xs text-charcoal/50 p-2">No media in the library yet.</p>}
           {items.map((m) => {
-            const v = isVideoUrl(m.url);
+            const isVideo = m.isVideo || m.url?.match(/\.(mp4|webm|mov|mkv|avi|m4v|mpeg|mpg|3gp|wmv|flv)(\?.*)?$/i);
+            const mimetype = m.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
+            const compat = mimetype ? videoCompatibilityNote(mimetype) : null;
             return (
-              <button key={m.name} type="button" onClick={() => { onChange(m.url); setOpen(false); }} className={cn("relative aspect-square overflow-hidden rounded-md ring-2", value === m.url ? "ring-energy" : "ring-transparent hover:ring-charcoal/20")}>
-                {v ? (
+              <button key={m.name} type="button" onClick={() => { onChange(m.url); setOpen(false); }} className={cn("aspect-square overflow-hidden rounded-md ring-2", value === m.url ? "ring-energy" : "ring-transparent hover:ring-charcoal/20")}>
+                {isVideo ? (
                   <>
                     <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                     <span className="absolute inset-0 grid place-items-center text-white bg-charcoal/25">
@@ -205,6 +204,7 @@ export function ImageInput({ value, onChange, label }: { value: string; onChange
                 ) : (
                   <img src={m.url} alt={m.name} className="h-full w-full object-cover" loading="lazy" />
                 )}
+                {compat && <span className="absolute bottom-1 left-1 right-1 bg-charcoal/80 text-[9px] text-white px-1 py-0.5 truncate">{compat}</span>}
               </button>
             );
           })}

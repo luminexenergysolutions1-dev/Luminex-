@@ -3,9 +3,9 @@ import { deleteMedia, fetchQuotes, listMedia, updateQuoteStatus, uploadMedia } f
 import { QUOTE_STATUSES } from "@/lib/defaults";
 import type { MediaItem, QuoteRequest, QuoteStatus } from "@/lib/types";
 import { AdminPageTitle } from "../AdminLayout";
-import { inputCls, isVideoUrl, isImageUrl } from "../fields";
-import { UPLOAD_ACCEPT_ATTRIBUTE, formatFileSize } from "@/utils/media";
+import { inputCls } from "../fields";
 import { cn } from "@/utils/cn";
+import { formatFileSize, isVideoUrl, videoCompatibilityNote, videoTypeFromUrl } from "@/utils/media";
 
 const statusColor: Record<QuoteStatus, string> = {
   New: "bg-solar/25 text-charcoal",
@@ -135,8 +135,8 @@ export function MediaAdmin() {
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState("");
   const [copied, setCopied] = useState("");
-  const [progress, setProgress] = useState<{ name: string; percent: number; loaded: number; total: number } | null>(null);
-  const [done, setDone] = useState("");
+  const [uploadProgress, setUploadProgress] = useState<Record<string, number>>({});
+  const [uploadStatus, setUploadStatus] = useState<Record<string, "pending" | "uploading" | "complete" | "error">>({});
 
   const load = () => listMedia().then(setItems).catch((e) => setErr(e.message));
   useEffect(() => {
@@ -147,34 +147,50 @@ export function MediaAdmin() {
     if (!files) return;
     setBusy(true);
     setErr("");
-    setDone("");
     const failures: string[] = [];
     let uploaded = 0;
     for (const f of Array.from(files)) {
-      setProgress({ name: f.name, percent: 0, loaded: 0, total: f.size });
       try {
-        await uploadMedia(f, {
-          onProgress: (p) => setProgress({ name: f.name, percent: p.percent, loaded: p.loaded, total: p.total }),
-        });
+        setUploadStatus((prev) => ({ ...prev, [f.name]: "uploading" }));
+        setUploadProgress((prev) => ({ ...prev, [f.name]: 0 }));
+
+        const progressInterval = setInterval(() => {
+          setUploadProgress((prev) => {
+            const current = prev[f.name] || 0;
+            if (current < 90) {
+              return { ...prev, [f.name]: Math.min(current + 10, 90) };
+            }
+            return prev;
+          });
+        }, 200);
+
+        await uploadMedia(f);
+        clearInterval(progressInterval);
+        setUploadProgress((prev) => ({ ...prev, [f.name]: 100 }));
+        setUploadStatus((prev) => ({ ...prev, [f.name]: "complete" }));
         uploaded += 1;
       } catch (e) {
+        setUploadStatus((prev) => ({ ...prev, [f.name]: "error" }));
         failures.push(`${f.name}: ${(e as Error).message}`);
       }
     }
-    setProgress(null);
     await load();
     if (failures.length) {
       setErr(
         `${uploaded} file${uploaded === 1 ? "" : "s"} uploaded. ${failures.length} failed — ${failures.join(" | ")}`
       );
     } else if (uploaded) {
-      setDone(`${uploaded} file${uploaded === 1 ? "" : "s"} uploaded successfully.`);
+      setErr(`${uploaded} file${uploaded === 1 ? "" : "s"} uploaded successfully.`);
     }
     setBusy(false);
+    setTimeout(() => {
+      setUploadProgress({});
+      setUploadStatus({});
+    }, 3000);
   };
 
   const remove = async (name: string) => {
-    if (!confirm("Delete this file? Pages using it will show a broken image or video until replaced.")) return;
+    if (!confirm("Delete this file? Pages using it will show a broken image/video until replaced.")) return;
     await deleteMedia(name);
     load();
   };
@@ -189,61 +205,46 @@ export function MediaAdmin() {
     <>
       <AdminPageTitle
         title="Media Library"
-        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted formats: images (JPG, PNG, GIF, WebP, AVIF), videos (MP4, M4V, MOV, WebM, MKV, AVI, MPEG/MPG, 3GP, WMV, FLV) and PDF documents. Every file is validated by its real content, not only by its extension. Large files are uploaded in resumable chunks. Max 5MB for images and PDF, 50MB for videos (the storage plan limit)."
+        intro="Upload images and videos once, then assign them to the hero, services or projects. Accepted: images (JPG, PNG, WebP, AVIF, GIF, BMP, TIFF, SVG), videos (MP4, WebM, MOV, MKV, AVI, M4V, MPEG, 3GP, WMV, FLV, OGG), PDF. Max 100MB videos, 20MB images/PDF."
         actions={
           <label className="min-h-[44px] inline-flex items-center rounded-lg bg-charcoal px-4 text-sm font-semibold text-white cursor-pointer">
             {busy ? "Uploading…" : "Upload images or videos"}
-            <input type="file" accept={UPLOAD_ACCEPT_ATTRIBUTE} multiple className="sr-only" disabled={busy} onChange={(e) => upload(e.target.files)} />
+            <input type="file" accept="image/*,video/*,application/pdf" multiple className="sr-only" onChange={(e) => upload(e.target.files)} disabled={busy} />
           </label>
         }
       />
-      {progress && (
-        <div className="mb-3 rounded-xl bg-white ring-1 ring-charcoal/6 p-3">
-          <div className="flex items-center justify-between text-sm">
-            <span className="font-semibold truncate">{progress.name}</span>
-            <span className="text-charcoal/60">
-              {progress.percent}% · {formatFileSize(progress.loaded)} / {formatFileSize(progress.total)}
-            </span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-soft overflow-hidden">
-            <div className="h-full bg-energy transition-all" style={{ width: `${progress.percent}%` }} />
-          </div>
-        </div>
-      )}
-      {done && <p className="text-sm text-green-700 mb-3">{done}</p>}
       {err && <p className="text-sm text-red-600 mb-3">{err}</p>}
       {items.length === 0 ? (
-        <div className="rounded-2xl bg-white ring-1 ring-charcoal/6 p-10 text-center text-sm text-charcoal/50">No images or videos uploaded yet.</div>
+        <div className="rounded-2xl bg-white ring-1 ring-charcoal/6 p-10 text-center text-sm text-charcoal/50">No files uploaded yet.</div>
       ) : (
         <ul className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3">
           {items.map((m) => {
-            const v = isVideoUrl(m.url);
-            const i = isImageUrl(m.url);
+            const isVideo = m.isVideo || m.url?.match(/\.(mp4|webm|mov|mkv|avi|m4v|mpeg|mpg|3gp|wmv|flv)(\?.*)?$/i);
+            const mimeType = m.mimeType || (isVideo ? "video/mp4" : "image/jpeg");
+            const compatNote = mimeType ? videoCompatibilityNote(mimeType) : null;
+            const type = videoTypeFromUrl(m.url);
             return (
               <li key={m.name} className="rounded-xl bg-white ring-1 ring-charcoal/6 overflow-hidden">
                 <div className="aspect-[4/3] bg-soft relative">
-                  {v ? (
-                    <>
-                      <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
-                      <span className="absolute inset-0 grid place-items-center text-white bg-charcoal/25 pointer-events-none">
-                        <svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z" /></svg>
-                      </span>
-                    </>
-                  ) : i ? (
-                    <img src={m.url} alt={m.name} loading="lazy" className="h-full w-full object-cover" />
+                  {m.isVideo ? (
+                    <video src={m.url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
                   ) : (
-                    <div className="h-full w-full flex items-center justify-center text-charcoal/50">Unsupported format</div>
+                    <img src={m.url} alt={m.name} loading="lazy" className="h-full w-full object-cover" />
+                  )}
+                  {m.isVideo && (
+                    <span className="absolute bottom-1 right-1 bg-charcoal/80 text-white text-xs px-1.5 py-0.5 rounded">VIDEO</span>
                   )}
                 </div>
                 <div className="p-2.5">
                   <p className="text-[11px] text-charcoal/60 truncate" title={m.name}>{m.name}</p>
-                  {v && <p className="text-[10px] font-semibold text-energy uppercase tracking-wide">Video</p>}
-                  {i && <p className="text-[10px] font-semibold text-energy uppercase tracking-wide">Image</p>}
-                  {!v && !i && <p className="text-[10px] font-semibold text-red-600 uppercase tracking-wide">Unsupported</p>}
+                  <p className="text-[10px] text-charcoal/40 mt-0.5">{formatFileSize(m.size || 0)}</p>
                   <div className="mt-1.5 flex gap-1">
                     <button onClick={() => copy(m.url)} className="flex-1 min-h-[36px] rounded-md bg-soft text-xs font-semibold">{copied === m.url ? "Copied" : "Copy URL"}</button>
                     <button onClick={() => remove(m.name)} className="min-h-[36px] px-2.5 rounded-md text-xs font-semibold text-red-600 hover:bg-red-50">Delete</button>
                   </div>
+                  {m.isVideo && (
+                    <p className="mt-1 text-[10px] text-charcoal/50">{m.mimeType} · {compatNote || "Plays in browser"}</p>
+                  )}
                 </div>
               </li>
             );

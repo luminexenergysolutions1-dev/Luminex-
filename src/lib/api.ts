@@ -1,15 +1,5 @@
-import { isVideoUrl, isImageUrl } from "@/utils/media";
-import {
-  MediaValidationError,
-  RESUMABLE_UPLOAD_THRESHOLD,
-  formatFileSize,
-  maxUploadBytes,
-  resolveUpload,
-  storageErrorMessage,
-} from "@/utils/media";
-import { supabaseAnonKey, supabaseProjectUrl } from "./supabase";
-import { defaultSiteData } from "./defaults";
 import { requireSupabase, supabase } from "./supabase";
+import { defaultSiteData } from "./defaults";
 import type {
   Faq,
   MediaItem,
@@ -134,18 +124,10 @@ export async function submitQuote(input: QuoteInput) {
 
 export async function uploadQuoteAttachment(file: File) {
   const sb = requireSupabase();
-  const resolved = await resolveUpload(file);
-  if (resolved.kind === "video") {
-    throw new MediaValidationError("Quote attachments must be an image or a PDF document.");
-  }
-  if (file.size > 5 * 1024 * 1024) {
-    throw new MediaValidationError(`Attachment must be under 5MB (this file is ${formatFileSize(file.size)}).`);
-  }
-  const auth = await storageAuth(false);
-  const name = safeFileName(file.name, resolved.extension);
-  const path = `quotes/${name}`;
-  await directUpload(file, path, resolved.contentType, auth);
-  return `${auth.base}/storage/v1/object/public/media/${path}`;
+  const path = `quotes/${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file);
+  if (error) throw error;
+  return sb.storage.from(MEDIA_BUCKET).getPublicUrl(path).data.publicUrl;
 }
 
 export async function fetchQuotes(): Promise<QuoteRequest[]> {
@@ -166,202 +148,74 @@ export async function updateQuoteStatus(id: string, status: QuoteStatus) {
 
 /* ---------------- Media ---------------- */
 
-export interface UploadProgress {
-  loaded: number;
-  total: number;
-  percent: number;
+const ALLOWED_IMAGE_TYPES = [
+  "image/jpeg",
+  "image/png",
+  "image/webp",
+  "image/avif",
+  "image/gif",
+  "image/bmp",
+  "image/tiff",
+  "image/svg+xml",
+];
+
+const ALLOWED_VIDEO_TYPES = [
+  "video/mp4",
+  "video/webm",
+  "video/quicktime",
+  "video/x-matroska",
+  "video/x-msvideo",
+  "video/x-m4v",
+  "video/mpeg",
+  "video/3gpp",
+  "video/x-ms-wmv",
+  "video/x-flv",
+];
+
+const ALLOWED_MIME_TYPES = [...ALLOWED_IMAGE_TYPES, ...ALLOWED_VIDEO_TYPES, "application/pdf", "video/ogg", "audio/ogg"];
+
+const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB
+const MAX_IMAGE_SIZE = 20 * 1024 * 1024; // 20MB for images
+const MAX_VIDEO_SIZE = 100 * 1024 * 1024; // 100MB for videos
+
+function isVideoFile(file: File): boolean {
+  return ALLOWED_VIDEO_TYPES.includes(file.type);
 }
 
-export interface UploadOptions {
-  onProgress?: (progress: UploadProgress) => void;
-  signal?: AbortSignal;
+function isImageFile(file: File): boolean {
+  return ALLOWED_IMAGE_TYPES.includes(file.type);
 }
 
-const UPLOAD_CHUNK_SIZE = 4 * 1024 * 1024;
-const UPLOAD_CHUNK_RETRIES = 3;
-
-/** Builds a storage safe file name: no path separators, no traversal. */
-function safeFileName(name: string, extension: string): string {
-  const base = (name.replace(/\.[^.]+$/, "") || "file")
-    .replace(/[^a-zA-Z0-9._-]/g, "_")
-    .replace(/^\.+/, "")
-    .slice(0, 60);
-  return `${Date.now()}-${base || "file"}.${extension}`;
-}
-
-async function storageAuth(requireSession = true): Promise<{ base: string; apikey: string; token: string }> {
-  const sb = requireSupabase();
-  const base = supabaseProjectUrl;
-  if (!base || !supabaseAnonKey) {
-    throw new Error("Supabase is not configured. Set VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY.");
-  }
-  const { data } = await sb.auth.getSession();
-  const token = data.session?.access_token;
-  if (!token) {
-    if (requireSession) {
-      throw new Error("You must be signed in as an administrator to upload files.");
+function validateFile(file: File): { valid: boolean; error?: string; type: "image" | "video" | "pdf" | "unknown" } {
+  // Check file signature (magic bytes) for security
+  // For now, we trust the browser's file.type but also check against allowed list
+  // In a production environment, you'd want to read the file header to verify
+  
+  if (ALLOWED_IMAGE_TYPES.includes(file.type)) {
+    if (file.size > 20 * 1024 * 1024) {
+      return { valid: false, error: "Image files must be under 20MB", type: "image" };
     }
-    // Anonymous visitors may attach a document to a quote request.
-    return { base, apikey: supabaseAnonKey, token: supabaseAnonKey };
+    return { valid: true, type: "image" };
   }
-  return { base, apikey: supabaseAnonKey, token };
+  
+  if (ALLOWED_VIDEO_TYPES.includes(file.type)) {
+    if (file.size > MAX_VIDEO_SIZE) {
+      return { valid: false, error: "Video files must be under 100MB", type: "video" };
+    }
+    return { valid: true, type: "video" };
+  }
+  
+  if (file.type === "application/pdf") {
+    if (file.size > 20 * 1024 * 1024) {
+      return { valid: false, error: "PDF files must be under 20MB", type: "pdf" };
+    }
+    return { valid: true, type: "pdf" };
+  }
+  
+  return { valid: false, error: `Unsupported file type: ${file.type}. Supported: images (JPG, PNG, WebP, AVIF, GIF, BMP, TIFF, SVG), videos (MP4, WebM, MOV, MKV, AVI, M4V, MPEG, 3GP, WMV, FLV), PDF`, type: "unknown" };
 }
 
-/** Single request upload with byte level progress reporting. */
-async function directUpload(
-  file: File,
-  path: string,
-  contentType: string,
-  auth: { base: string; apikey: string; token: string },
-  options?: UploadOptions
-): Promise<void> {
-  const url = `${auth.base}/storage/v1/object/media/${path}`;
-  await new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("apikey", auth.apikey);
-    xhr.setRequestHeader("Authorization", `Bearer ${auth.token}`);
-    xhr.setRequestHeader("Content-Type", contentType);
-    xhr.setRequestHeader("Cache-Control", "31536000");
-    xhr.setRequestHeader("x-upsert", "false");
-    xhr.upload.onprogress = (e) => {
-      if (options?.onProgress && e.lengthComputable) {
-        options.onProgress({ loaded: e.loaded, total: e.total, percent: Math.round((e.loaded / e.total) * 100) });
-      }
-    };
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) return resolve();
-      let message = xhr.responseText || `Upload failed (HTTP ${xhr.status}).`;
-      try {
-        const parsed = JSON.parse(xhr.responseText);
-        if (parsed?.message) message = parsed.message;
-      } catch {
-        /* keep the raw text */
-      }
-      reject(new Error(message));
-    };
-    xhr.onerror = () => reject(new Error("Network error while uploading. Check your connection and try again."));
-    xhr.onabort = () => reject(new DOMException("Upload cancelled", "AbortError"));
-    const onAbort = () => xhr.abort();
-    options?.signal?.addEventListener("abort", onAbort, { once: true });
-    xhr.onloadend = () => options?.signal?.removeEventListener("abort", onAbort);
-    xhr.send(file);
-  });
-}
-
-/**
- * Resumable upload using the storage provider's TUS endpoint.
- * The file is sent in chunks so an interrupted connection only restarts the
- * current chunk instead of the whole file.
- */
-async function resumableUpload(
-  file: File,
-  path: string,
-  contentType: string,
-  auth: { base: string; apikey: string; token: string },
-  options?: UploadOptions
-): Promise<void> {
-  const meta = (name: string, value: string) => `${name} ${btoa(unescape(encodeURIComponent(value)))}`;
-  const metadata = [
-    meta("bucketName", "media"),
-    meta("objectName", path),
-    meta("contentType", contentType),
-    meta("cacheControl", "31536000"),
-  ].join(",");
-
-  const create = await fetch(`${auth.base}/storage/v1/upload/resumable`, {
-    method: "POST",
-    headers: {
-      apikey: auth.apikey,
-      Authorization: `Bearer ${auth.token}`,
-      "Tus-Resumable": "1.0.0",
-      "Upload-Length": String(file.size),
-      "Upload-Metadata": metadata,
-      "x-upsert": "false",
-    },
-    signal: options?.signal,
-  });
-  if (!create.ok) {
-    const text = await create.text();
-    let message = text || `Upload could not be started (HTTP ${create.status}).`;
-    try {
-      const parsed = JSON.parse(text);
-      if (parsed?.message) message = parsed.message;
-    } catch {
-      /* keep raw text */
-    }
-    throw new Error(message);
-  }
-  const location = create.headers.get("location");
-  if (!location) throw new Error("The storage service did not return an upload session.");
-  const uploadUrl = location.startsWith("http") ? location : `${auth.base}${location}`;
-
-  let offset = 0;
-  while (offset < file.size) {
-    const end = Math.min(offset + UPLOAD_CHUNK_SIZE, file.size);
-    const chunk = file.slice(offset, end);
-    let lastError: unknown = null;
-    for (let attempt = 1; attempt <= UPLOAD_CHUNK_RETRIES; attempt++) {
-      try {
-        const res = await fetch(uploadUrl, {
-          method: "PATCH",
-          headers: {
-            apikey: auth.apikey,
-            Authorization: `Bearer ${auth.token}`,
-            "Tus-Resumable": "1.0.0",
-            "Content-Type": "application/offset+octet-stream",
-            "Upload-Offset": String(offset),
-          },
-          body: chunk,
-          signal: options?.signal,
-        });
-        if (res.status === 204 || res.status === 200) {
-          lastError = null;
-          break;
-        }
-        const text = await res.text();
-        lastError = new Error(text || `Chunk upload failed (HTTP ${res.status}).`);
-        if (res.status < 500 && res.status !== 429) break;
-      } catch (e) {
-        lastError = e;
-      }
-      if (attempt < UPLOAD_CHUNK_RETRIES) {
-        await new Promise((r) => setTimeout(r, 1000 * attempt));
-      }
-    }
-    if (lastError) {
-      throw new Error(
-        `Upload interrupted at ${Math.round((offset / file.size) * 100)}%: ${
-          lastError instanceof Error ? lastError.message : String(lastError)
-        }`
-      );
-    }
-    offset = end;
-    options?.onProgress?.({ loaded: offset, total: file.size, percent: Math.round((offset / file.size) * 100) });
-  }
-
-  // The last chunk already finalises the object; the explicit call is kept for
-  // storage versions that need it. A 409 means "already stored", which is fine.
-  try {
-    const finish = await fetch(uploadUrl, {
-      method: "POST",
-      headers: {
-        apikey: auth.apikey,
-        Authorization: `Bearer ${auth.token}`,
-        "Tus-Resumable": "1.0.0",
-        "Upload-Length": "0",
-        "Upload-Metadata": metadata,
-      },
-      signal: options?.signal,
-    });
-    if (!finish.ok && finish.status !== 409) {
-      const text = await finish.text();
-      throw new Error(text || `Upload could not be completed (HTTP ${finish.status}).`);
-    }
-  } catch (e) {
-    if (e instanceof Error && !/already exists/i.test(e.message)) throw e;
-  }
-}
+/* ---------------- Media ---------------- */
 
 export async function listMedia(): Promise<MediaItem[]> {
   const sb = requireSupabase();
@@ -372,45 +226,51 @@ export async function listMedia(): Promise<MediaItem[]> {
   return (data ?? [])
     .filter((f) => f.name && !f.name.startsWith("."))
     .map((f) => {
-      const mime = (f.metadata as { mimetype?: string } | null)?.mimetype ?? "";
+      const isVideo = /\.(mp4|webm|mov|mkv|avi|m4v|mpeg|mpg|3gp|wmv|flv)(\?.*)?$/i.test(f.name);
+      const mimeType = f.metadata?.mimetype ?? (isVideo ? "video/mp4" : "image/jpeg");
       return {
         name: f.name,
         created_at: f.created_at ?? undefined,
-        mime_type: mime || undefined,
         url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${f.name}`).data.publicUrl,
+        mimeType: f.metadata?.mimetype ?? (isVideo ? "video/mp4" : "image/jpeg"),
+        isVideo: true,
       };
     });
 }
 
-export async function uploadMedia(file: File, options?: UploadOptions): Promise<MediaItem> {
-  const auth = await storageAuth();
-  // The browser supplied MIME type is not trusted: the file is identified by its
-  // magic bytes and the canonical type is stored with the object.
-  const resolved = await resolveUpload(file);
-  const maxBytes = maxUploadBytes(resolved.kind);
-  if (file.size > maxBytes) {
-    throw new MediaValidationError(
-      resolved.kind === "video"
-        ? `Video must be under 50MB (this file is ${formatFileSize(file.size)}).`
-        : `${resolved.kind === "pdf" ? "PDF" : "Image"} must be under 5MB (this file is ${formatFileSize(file.size)}).`
-    );
+export async function uploadMedia(file: File): Promise<MediaItem> {
+  const sb = requireSupabase();
+  
+  const validation = validateFile(file);
+  if (!validation.valid) {
+    throw new Error(validation.error);
   }
-  const name = safeFileName(file.name, resolved.extension);
+  
+  const isVideo = file.type.startsWith("video/");
+  const name = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9._-]/g, "_")}`;
   const path = `uploads/${name}`;
-  try {
-    if (file.size >= RESUMABLE_UPLOAD_THRESHOLD) {
-      await resumableUpload(file, path, resolved.contentType, auth, options);
-    } else {
-      await directUpload(file, path, resolved.contentType, auth, options);
+  
+  const { error } = await sb.storage.from(MEDIA_BUCKET).upload(path, file, {
+    cacheControl: "31536000",
+    upsert: false,
+  });
+  
+  if (error) {
+    // Provide more helpful error messages
+    if (error.message.includes("mime type")) {
+      throw new Error(`File type not allowed: ${file.type}. Please convert to a supported format.`);
     }
-  } catch (e) {
-    if (e instanceof DOMException && e.name === "AbortError") throw e;
-    throw new Error(storageErrorMessage(e instanceof Error ? e.message : String(e), resolved.contentType));
+    if (error.message.includes("size") || error.message.includes("size limit")) {
+      throw new Error(`File too large. Maximum size: 100MB for videos, 20MB for images/PDFs.`);
+    }
+    throw error;
   }
+  
   return {
     name,
-    mime_type: resolved.contentType,
-    url: `${auth.base}/storage/v1/object/public/media/${path}`,
+    mimeType: file.type,
+    isVideo: file.type.startsWith("video/"),
+    url: sb.storage.from(MEDIA_BUCKET).getPublicUrl(`uploads/${name}`).data.publicUrl,
   };
 }
 

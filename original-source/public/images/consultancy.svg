@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="800" viewBox="0 0 1200 800">
+  <rect width="1200" height="800" fill="#ffffff"/>
+  <rect y="0" width="1200" height="300" fill="#f1f5f9"/>
+  <rect y="300" width="1200" height="500" fill="#e2e8f0"/>
+  <rect x="100" y="100" width="500" height="150" fill="#87ceeb"/>
+  <rect x="700" y="80" width="400" height="200" fill="#1e293b"/>
+  <text x="750" y="140" fill="#ffffff" font-family="Arial" font-size="24">SOLAR PV PROJECT</text>
+  <text x="750" y="180" fill="#ffffff" font-family="Arial" font-size="18">PLANNING</text>
+  <line x1="750" y1="220" x2="1050" y2="220" stroke="#475569" stroke-width="2"/>
+  <line x1="750" y1="250" x2="1050" y2="250" stroke="#475569" stroke-width="2"/>
+  <line x1="750" y1="280" x2="850" y2="280" stroke="#475569" stroke-width="2"/>
+  <rect x="200" y="380" width="800" height="60" fill="#33415b"/>
+  <circle cx="350" cy="370" r="20" fill="#1e293b"/>
+  <rect x="340" y="390" width="20" height="50" fill="#0f172a"/>
+  <circle cx="500" cy="370" r="20" fill="#1e293b"/>
+  <rect x="490" y="390" width="20" height="50" fill="#0f172a"/>
+  <circle cx="650" cy="370" r="20" fill="#1e293b"/>
+  <rect x="640" y="390" width="20" height="50" fill="#0f172a"/>
+  <circle cx="800" cy="370" r="20" fill="#1e293b"/>
+  <rect x="790" y="390" width="20" height="50" fill="#0f172a"/>
+</svg>
