@@ -367,6 +367,12 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
   return { valid: true };
 }
 
+export const ALLOWED_TYPES = [
+  ...ALLOWED_IMAGE_TYPES,
+  ...ALLOWED_VIDEO_TYPES,
+  "application/pdf",
+] as const;
+
 /**
  * Format file size in human-readable format
  */
